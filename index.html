@@ -472,11 +472,9 @@ function pickAirport(code, name) {
     }
 }
 
-function applyLocation(lat, lon, source) {
+function applyLocation(lat, lon) {
     const btn = document.getElementById('locationBtn');
-    console.log('[geo] applying location from', source, lat, lon);
     const sorted = ALL.slice().sort((a, b) => haversine(lat,lon,a.lat,a.lon) - haversine(lat,lon,b.lat,b.lon));
-    console.log('[geo] nearest airports:', sorted.slice(0,4).map(a=>a.code));
     renderPopular(sorted.slice(0, 4));
     renderAllList(sorted.slice(4));
     btn.innerHTML = '<span aria-hidden="true">✓</span> Sorted by nearest airport';
@@ -486,45 +484,22 @@ function applyLocation(lat, lon, source) {
 
 function requestLocation() {
     const btn = document.getElementById('locationBtn');
+    if (!navigator.geolocation) {
+        btn.innerHTML = '<span aria-hidden="true">📍</span> Location not supported in this browser';
+        return;
+    }
     btn.disabled = true;
     btn.innerHTML = '<span aria-hidden="true">📍</span> Finding your location&hellip;';
-
-    let resolved = false;
-
-    // IP geolocation — no permission needed, resolves in ~1s
-    const ipLookup = fetch('https://ipapi.co/json/')
-        .then(r => r.json())
-        .then(d => {
-            if (!resolved && d.latitude && d.longitude) {
-                resolved = true;
-                console.log('[geo] IP lookup success');
-                applyLocation(d.latitude, d.longitude, 'ip');
-            }
-        })
-        .catch(e => console.warn('[geo] IP lookup failed', e));
-
-    // Browser geolocation — more precise if it responds; wins the race if faster
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            pos => {
-                if (resolved) return; // IP already won
-                resolved = true;
-                console.log('[geo] browser geolocation success');
-                applyLocation(pos.coords.latitude, pos.coords.longitude, 'browser');
-            },
-            err => console.warn('[geo] browser geolocation error', err.code, err.message),
-            { maximumAge: 600000, enableHighAccuracy: false }
-        );
-    }
-
-    // If both fail after 8s, show error
-    setTimeout(() => {
-        if (!resolved) {
-            console.warn('[geo] all methods failed after 8s');
-            btn.innerHTML = '<span aria-hidden="true">📍</span> Could not find location — try again';
+    navigator.geolocation.getCurrentPosition(
+        pos => applyLocation(pos.coords.latitude, pos.coords.longitude),
+        err => {
+            let msg = 'Could not get location — try again';
+            if (err.code === 1) msg = 'Location blocked — allow it in your browser settings';
+            btn.innerHTML = `<span aria-hidden="true">📍</span> ${msg}`;
             btn.disabled = false;
-        }
-    }, 8000);
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }
+    );
 }
 
 function haversine(lat1, lon1, lat2, lon2) {
