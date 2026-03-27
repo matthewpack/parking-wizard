@@ -3,13 +3,14 @@
   "version": "1.0.0",
   "description": "Holiday Extras airport parking wizard",
   "scripts": {
-    "start": "http-server . -p ${PORT:-8080} -c-1 --cors",
-    "dev": "http-server . -p 8080 -c-1 --cors -o"
+    "start": "node server.js",
+    "dev": "PORT=8080 node server.js"
   },
   "dependencies": {
-    "http-server": "^14.1.1"
+    "compression": "^1.7.4",
+    "express": "^4.19.2"
   },
   "engines": {
-    "node": ">=18"
+    "node": "20.x"
   }
 }
