@@ -481,13 +481,20 @@ function requestLocation() {
         pos => {
             const { latitude: lat, longitude: lon } = pos.coords;
             const sorted = ALL.slice().sort((a, b) => haversine(lat,lon,a.lat,a.lon) - haversine(lat,lon,b.lat,b.lon));
-            renderPopular(sorted.slice(0, 8));
-            renderAllList(sorted.slice(8));
+            renderPopular(sorted.slice(0, 4));
+            renderAllList(sorted.slice(4));
             btn.innerHTML = '<span aria-hidden="true">✓</span> Sorted by nearest airport';
             btn.classList.add('done'); btn.disabled = false;
             track('parking_location_used');
         },
-        () => { btn.innerHTML = '<span aria-hidden="true">📍</span> Could not find location — try again'; btn.disabled = false; }
+        err => {
+            let msg = 'Could not find location — try again';
+            if (err.code === 1) msg = 'Location access denied — check browser permissions';
+            else if (err.code === 3) msg = 'Location timed out — try again';
+            btn.innerHTML = `<span aria-hidden="true">📍</span> ${msg}`;
+            btn.disabled = false;
+        },
+        { timeout: 10000, maximumAge: 300000 }
     );
 }
 
