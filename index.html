@@ -576,8 +576,7 @@ function pickAirport(code, name) {
     const el = document.getElementById('tile-' + code) || document.getElementById('row-' + code);
     if (el) {
         el.classList.add('selected');
-        setTimeout(() => el.classList.add('confirming'), 120);
-        setTimeout(() => goToStep(2), 650);
+        goToStep(2);
     }
 }
 
@@ -705,11 +704,7 @@ function pickDropoffDate(dateStr) {
     if (state.returnDate && state.returnDate <= d) { state.returnDate = null; state.returnTime = null; state.returnFlight = null; }
     track('parking-wizard-stage2-dropoff-date', dateStr);
     renderCalendar('dropoffCalBody', today(), 365, d, 'pickDropoffDate');
-    const cell = document.querySelector('#dropoffCalBody [data-date="' + dateStr + '"]');
-    if (cell) {
-        setTimeout(() => cell.classList.add('is-confirming'), 80);
-        setTimeout(() => goToStep(3), 700);
-    }
+    goToStep(3);
 }
 
 // ─── Step 3: Drop-off time ────────────────────────────────────────────────────
@@ -726,9 +721,7 @@ function onDropoffTime(h) {
     const sug = state.dropoffFlight ? Math.max(0, state.dropoffFlight.hour - 3) : null;
     renderTimePicker('dropoffTimeGrid', h, sug, onDropoffTime);
     track('parking-wizard-stage3-dropoff-time', pad2(h) + ':00');
-    const pills = document.querySelectorAll('#dropoffTimeGrid .time-pill');
-    if (pills[h]) setTimeout(() => pills[h].classList.add('tp-confirm'), 80);
-    setTimeout(() => goToStep(4), 600);
+    goToStep(4);
 }
 
 // ─── Step 4: Return date ──────────────────────────────────────────────────────
@@ -755,11 +748,7 @@ function pickReturnDate(dateStr) {
         ? new Date(state.dropoffDate.getFullYear(), state.dropoffDate.getMonth(), state.dropoffDate.getDate() + 1)
         : today();
     renderCalendar('returnCalBody', minReturn, 100, d, 'pickReturnDate');
-    const cell = document.querySelector('#returnCalBody [data-date="' + dateStr + '"]');
-    if (cell) {
-        setTimeout(() => cell.classList.add('is-confirming'), 80);
-        setTimeout(() => goToStep(5), 700);
-    }
+    goToStep(5);
 }
 
 // ─── Step 5: Return time ──────────────────────────────────────────────────────
@@ -776,9 +765,7 @@ function onReturnTime(h) {
     const sug = state.returnFlight ? Math.min(23, state.returnFlight.hour + 2) : null;
     renderTimePicker('returnTimeGrid', h, sug, onReturnTime);
     track('parking-wizard-stage5-return-time', pad2(h) + ':00');
-    const pills = document.querySelectorAll('#returnTimeGrid .time-pill');
-    if (pills[h]) setTimeout(() => pills[h].classList.add('tp-confirm'), 80);
-    setTimeout(() => goToStep(6), 600);
+    goToStep(6);
 }
 
 // ─── Flight picker ─────────────────────────────────────────────────────────────
