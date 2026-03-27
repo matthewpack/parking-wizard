@@ -482,7 +482,7 @@ function requestLocation() {
     }
     console.log('[geo] geolocation available, calling getCurrentPosition...');
     btn.disabled = true;
-    btn.innerHTML = '<span aria-hidden="true">📍</span> Finding your location&hellip;';
+    btn.innerHTML = '<span aria-hidden="true">📍</span> Allow location in browser prompt&hellip;';
     navigator.geolocation.getCurrentPosition(
         pos => {
             const { latitude: lat, longitude: lon } = pos.coords;
@@ -503,7 +503,7 @@ function requestLocation() {
             btn.innerHTML = `<span aria-hidden="true">📍</span> ${msg}`;
             btn.disabled = false;
         },
-        { timeout: 5000, maximumAge: 600000, enableHighAccuracy: false }
+        { maximumAge: 600000, enableHighAccuracy: false }
     );
 }
 
