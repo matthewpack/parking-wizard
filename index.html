@@ -473,14 +473,22 @@ function pickAirport(code, name) {
 }
 
 function requestLocation() {
+    console.log('[geo] requestLocation() called');
     const btn = document.getElementById('locationBtn');
-    if (!navigator.geolocation) { btn.textContent = '📍 Not supported'; return; }
+    if (!navigator.geolocation) {
+        console.warn('[geo] navigator.geolocation not available');
+        btn.textContent = '📍 Not supported';
+        return;
+    }
+    console.log('[geo] geolocation available, calling getCurrentPosition...');
     btn.disabled = true;
     btn.innerHTML = '<span aria-hidden="true">📍</span> Finding your location&hellip;';
     navigator.geolocation.getCurrentPosition(
         pos => {
             const { latitude: lat, longitude: lon } = pos.coords;
+            console.log('[geo] success:', lat, lon);
             const sorted = ALL.slice().sort((a, b) => haversine(lat,lon,a.lat,a.lon) - haversine(lat,lon,b.lat,b.lon));
+            console.log('[geo] nearest airports:', sorted.slice(0,4).map(a=>a.code));
             renderPopular(sorted.slice(0, 4));
             renderAllList(sorted.slice(4));
             btn.innerHTML = '<span aria-hidden="true">✓</span> Sorted by nearest airport';
@@ -488,13 +496,14 @@ function requestLocation() {
             track('parking_location_used');
         },
         err => {
+            console.warn('[geo] error — code:', err.code, 'message:', err.message);
             let msg = 'Could not find location — try again';
             if (err.code === 1) msg = 'Location access denied — check browser permissions';
             else if (err.code === 3) msg = 'Location timed out — try again';
             btn.innerHTML = `<span aria-hidden="true">📍</span> ${msg}`;
             btn.disabled = false;
         },
-        { timeout: 1000, maximumAge: 600000, enableHighAccuracy: false }
+        { timeout: 5000, maximumAge: 600000, enableHighAccuracy: false }
     );
 }
 
