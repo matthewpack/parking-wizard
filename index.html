@@ -8,7 +8,7 @@
     <title>Airport Parking | Holiday Extras</title>
     <link rel="preconnect" href="https://www.holidayextras.com">
     <link rel="dns-prefetch" href="https://www.holidayextras.com">
-    <link rel="preload" as="image" fetchpriority="high" href="get-holiday-ready.png">
+    <link rel="preload" as="image" fetchpriority="high" href="get-holiday-ready.jpg">
     <link rel="preload" as="font" type="font/woff2" crossorigin href="nunito-latin.woff2">
     <script defer src="//dbq5t2jl0vcpj.cloudfront.net/hx-tracker/tracker-v6-latest.min.js"></script>
     <style>
@@ -40,9 +40,10 @@
             --muted:    #718096;
         }
 
-        html { height: 100%; }
+        html { height: 100%; font-size: 18px; }
         body {
             font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 1rem;
             background: var(--bg);
             color: var(--text);
             height: 100%;
@@ -96,14 +97,8 @@
             max-height: 200px; object-fit: cover; object-position: center top;
         }
 
-        /* ── Back row ── */
-        .step-back { flex-shrink: 0; padding: .75rem 1.25rem 0; }
-        .back-btn {
-            background: none; border: none; color: var(--muted);
-            font-family: inherit; font-size: .875rem; cursor: pointer;
-            padding: .25rem 0; -webkit-tap-highlight-color: transparent;
-        }
-        .back-btn:hover { color: var(--text); }
+        /* ── Back row — hidden ── */
+        .step-back { display: none; }
 
         /* ── Trip summary strip ── */
         .trip-summary {
@@ -285,7 +280,7 @@
 <body>
 
 <header>
-    <img src="logo.png" alt="Holiday Extras" class="header-logo">
+    <img src="logo.jpg" alt="Holiday Extras" class="header-logo">
 </header>
 
 <main class="container">
@@ -294,7 +289,7 @@
     <!-- Step 1: Airport -->
     <section class="step active" id="step-1">
         <div class="hero-img">
-            <img src="get-holiday-ready.png" alt="" loading="eager" fetchpriority="high">
+            <img src="get-holiday-ready.jpg" alt="" loading="eager" fetchpriority="high">
         </div>
         <div class="step-body">
             <p class="sec-lbl" style="margin-bottom:.875rem">Where are you flying from?</p>
