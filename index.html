@@ -494,7 +494,7 @@ function requestLocation() {
             btn.innerHTML = `<span aria-hidden="true">📍</span> ${msg}`;
             btn.disabled = false;
         },
-        { timeout: 15000, maximumAge: 600000, enableHighAccuracy: false }
+        { timeout: 1000, maximumAge: 600000, enableHighAccuracy: false }
     );
 }
 
