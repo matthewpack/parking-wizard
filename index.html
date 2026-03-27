@@ -481,6 +481,23 @@ function applyLocation(lat, lon, label) {
     track('parking_location_used');
 }
 
+function gpsLookupSilent() {
+    if (!navigator.geolocation) return;
+    console.log('[location] GPS lookup starting (silent, permission already granted)...');
+    navigator.geolocation.getCurrentPosition(
+        pos => {
+            applyLocation(pos.coords.latitude, pos.coords.longitude, 'GPS (±' + Math.round(pos.coords.accuracy) + 'm)');
+            const btn = document.getElementById('locationBtn');
+            if (btn) {
+                btn.innerHTML = '<span aria-hidden="true">✓</span> Sorted by precise GPS location';
+                btn.classList.add('done');
+            }
+        },
+        () => ipLocationLookup(), // GPS failed silently, fall back to IP
+        { enableHighAccuracy: true, maximumAge: 300000, timeout: 10000 }
+    );
+}
+
 // Runs silently on page load — no permission needed
 function ipLocationLookup() {
     console.log('[location] IP lookup starting...');
@@ -818,7 +835,19 @@ function esc(s)    { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 (function init() {
     renderPopular(POPULAR);
     renderAllList(OTHERS);
-    ipLocationLookup(); // silently sort by nearest on load
+    // On load: use GPS silently if already permitted, otherwise fall back to IP
+    if (navigator.permissions) {
+        navigator.permissions.query({ name: 'geolocation' }).then(result => {
+            console.log('[location] permission state:', result.state);
+            if (result.state === 'granted') {
+                gpsLookupSilent();
+            } else {
+                ipLocationLookup();
+            }
+        });
+    } else {
+        ipLocationLookup();
+    }
     renderDateList('dropoffDateList', today(), 365, null);
     track('parking_wizard_start');
     track('parking_step_view', { step: 1 });
