@@ -55,15 +55,11 @@
 
         /* ── Header ── */
         header {
-            background: var(--purple);
-            padding: .75rem 1.25rem;
             flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            gap: .875rem;
+            line-height: 0;
+            background: var(--purple); /* fallback while image loads */
         }
-        .header-logo { height: 28px; width: auto; display: block; }
-        .header-product { color: white; font-size: .95rem; font-weight: 400; opacity: .9; }
+        .header-logo { display: block; width: 100%; height: auto; }
 
         /* ── Container ── */
         .container {
@@ -280,8 +276,7 @@
 <body>
 
 <header>
-    <img src="logo.jpg" alt="Holiday Extras" class="header-logo">
-    <span class="header-product">Airport Parking</span>
+    <img src="logo.jpg" alt="Holiday Extras — Airport Parking" class="header-logo">
 </header>
 
 <div class="hero-wrap" id="heroWrap">
