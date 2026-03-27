@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Book airport parking with Holiday Extras at all major UK airports.">
+    <meta name="theme-color" content="#1e3a5f">
+    <title>Airport Parking | Holiday Extras</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --navy:   #1e3a5f; --blue:   #2d6a9f; --blue-l: #ebf4ff;
+            --blue-m: #bee3f8; --blue-d: #235280;
+            --green:  #38a169; --green-d:#2f855a; --green-l:#f0fff4;
+            --bg:     #f0f4f8; --border: #e2e8f0;
+            --text:   #1a202c; --muted:  #718096;
+        }
+        html { height:100%; }
+        body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text); height:100%; display:flex; flex-direction:column; overflow:hidden; -webkit-font-smoothing:antialiased; }
+        .skip-link { position:absolute;top:-999px;left:0;background:var(--blue);color:white;padding:.5rem 1rem;z-index:999;font-size:.875rem;border-radius:0 0 6px 0; }
+        .skip-link:focus { top:0; }
+
+        /* ── Header ── */
+        header { background:var(--navy); padding:.875rem 1.25rem; flex-shrink:0; }
+        .brand { color:white; font-size:1.05rem; font-weight:700; letter-spacing:-.01em; }
+
+        /* ── Container / card ── */
+        .container {
+            flex:1; display:flex; flex-direction:column; overflow:hidden;
+            max-width:560px; width:100%; margin:0 auto; min-height:0;
+        }
+        @media(min-width:580px){ .container { padding:.75rem .875rem; } }
+
+        .card {
+            flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0;
+            background:white; border-radius:0;
+        }
+        @media(min-width:580px){ .card { border-radius:14px; box-shadow:0 2px 16px rgba(0,0,0,.09); } }
+
+        /* ── Trip summary bar ── */
+        .trip-summary {
+            display:none; flex-shrink:0;
+            background:var(--blue-l); border-bottom:1px solid var(--blue-m);
+            padding:.6rem 1.25rem; font-size:.8rem; font-weight:600;
+            color:var(--blue); line-height:1.4; white-space:nowrap;
+            overflow:hidden; text-overflow:ellipsis;
+        }
+        .trip-summary.visible { display:block; }
+        .ts-sep { opacity:.45; margin:0 .35rem; }
+
+        /* ── Steps ── */
+        .step { display:none; min-height:0; }
+        .step.active { display:flex; flex-direction:column; flex:1; min-height:0; animation:fade-up .2s ease; }
+        @keyframes fade-up { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+        .step-bar { flex-shrink:0; display:flex; align-items:center; gap:.75rem; padding:1rem 1.25rem 0; }
+        .back-btn { background:none; border:none; color:var(--muted); font-size:.875rem; cursor:pointer; padding:.25rem 0; -webkit-tap-highlight-color:transparent; }
+        .back-btn:hover { color:var(--text); }
+        .back-btn:focus-visible { outline:2px solid var(--blue); border-radius:3px; }
+        .step-title { font-size:1.1rem; font-weight:700; color:var(--navy); }
+        .step-body { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; min-height:0; padding:1rem 1.25rem 1.5rem; }
+
+        /* ── Labels ── */
+        .sec-lbl { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:.625rem; }
+        .step-q   { font-size:.875rem; color:var(--muted); margin-bottom:.875rem; }
+
+        /* ── Location button ── */
+        .location-btn {
+            width:100%; background:var(--navy); color:white; border:none; border-radius:10px;
+            padding:1rem 1.25rem; font-size:.95rem; font-weight:600; cursor:pointer;
+            display:flex; align-items:center; justify-content:center; gap:.5rem;
+            margin-bottom:1.375rem; transition:background .15s; -webkit-tap-highlight-color:transparent; min-height:52px;
+        }
+        .location-btn:hover:not(:disabled) { background:var(--blue-d); }
+        .location-btn:focus-visible { outline:3px solid var(--blue-m); }
+        .location-btn:disabled { opacity:.65; cursor:not-allowed; }
+        .location-btn.done { background:var(--green); }
+
+        /* ── Airport grid ── */
+        .airport-grid { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; margin-bottom:1.25rem; }
+        @media(min-width:420px){ .airport-grid { grid-template-columns:repeat(3,1fr); } }
+        .a-tile {
+            border:2px solid var(--border); border-radius:10px; padding:.875rem .5rem;
+            cursor:pointer; text-align:center;
+            transition:border-color .12s,background .12s,transform .15s;
+            user-select:none; -webkit-tap-highlight-color:transparent;
+        }
+        .a-tile:hover { border-color:var(--blue); background:var(--blue-l); }
+        .a-tile:focus-visible { outline:3px solid var(--blue); outline-offset:2px; }
+        .a-tile.selected   { border-color:var(--blue); background:var(--blue-l); transform:scale(1.04); }
+        .a-tile.confirming { border-color:var(--green); background:var(--green-l); animation:pop .3s ease; }
+        .a-code { font-size:1.375rem; font-weight:800; color:var(--navy); letter-spacing:.02em; }
+        .a-name { font-size:.7rem; color:var(--muted); margin-top:.2rem; line-height:1.3; }
+
+        /* ── Airport list ── */
+        .airport-list { border:1.5px solid var(--border); border-radius:10px; overflow:hidden; }
+        .step-body::-webkit-scrollbar { width:4px; }
+        .step-body::-webkit-scrollbar-thumb { background:#cbd5e0; border-radius:2px; }
+        .a-row {
+            display:flex; align-items:center; padding:.875rem 1rem; gap:.875rem;
+            border-bottom:1px solid var(--border); cursor:pointer; min-height:56px;
+            transition:background .1s; user-select:none; -webkit-tap-highlight-color:transparent;
+        }
+        .a-row:last-child { border-bottom:none; }
+        .a-row:hover { background:var(--blue-l); }
+        .a-row:focus-visible { outline:2px solid var(--blue); }
+        .a-row.selected   { background:var(--blue-l); }
+        .a-row.confirming { background:var(--green-l); }
+        .a-row-code { font-size:.95rem; font-weight:800; color:var(--navy); width:2.75rem; flex-shrink:0; }
+        .a-row-name { font-size:.875rem; color:var(--text); flex:1; }
+
+        /* ── Date list ── */
+        .date-list { border:1.5px solid var(--border); border-radius:10px; overflow:hidden; margin-bottom:1rem; }
+        .date-month-hdr { background:#f7fafc; padding:.4rem 1rem; font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:1; }
+        .date-row {
+            display:flex; align-items:center; padding:0 1rem; border-bottom:1px solid var(--border);
+            cursor:pointer; gap:.875rem; min-height:68px; transition:background .1s;
+            user-select:none; -webkit-tap-highlight-color:transparent;
+        }
+        .date-row:last-child { border-bottom:none; }
+        .date-row:hover { background:var(--blue-l); }
+        .date-row:focus-visible { outline:2px solid var(--blue); }
+        .date-row.selected   { background:var(--blue-l); }
+        .date-row.confirming { background:var(--green-l); animation:pop .3s ease; }
+        @keyframes pop { 0%{transform:scale(1)} 50%{transform:scale(1.012)} 100%{transform:scale(1)} }
+        .dr-day { width:2rem; font-size:.68rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; flex-shrink:0; }
+        .dr-num { font-size:2rem; font-weight:800; color:var(--navy); width:3rem; text-align:center; line-height:1; flex-shrink:0; }
+        .date-row.selected .dr-num   { color:var(--blue); }
+        .date-row.confirming .dr-num { color:var(--green); }
+        .dr-rest { flex:1; font-size:.875rem; color:var(--muted); }
+        .date-row.selected .dr-rest { color:var(--blue-d); }
+        .today-pill { display:inline-block; background:var(--blue); color:white; font-size:.6rem; font-weight:700; padding:.1rem .375rem; border-radius:8px; text-transform:uppercase; letter-spacing:.05em; vertical-align:middle; margin-left:.4rem; }
+
+        /* ── Context bar ── */
+        .ctx-bar { background:#f7fafc; border:1.5px solid var(--border); border-radius:8px; padding:.625rem .875rem; font-size:.815rem; color:var(--muted); margin-bottom:.875rem; }
+        .ctx-bar strong { color:var(--text); }
+
+        /* ── Flight picker ── */
+        .flight-section { margin-bottom:1.25rem; }
+        .flight-list { border:1.5px solid var(--border); border-radius:10px; overflow:hidden; margin-bottom:.625rem; }
+        .flight-row {
+            display:flex; align-items:center; padding:.75rem 1rem; gap:.875rem;
+            border-bottom:1px solid var(--border); cursor:pointer; min-height:58px;
+            transition:background .1s; user-select:none; -webkit-tap-highlight-color:transparent;
+        }
+        .flight-row:last-child { border-bottom:none; }
+        .flight-row:hover { background:var(--blue-l); }
+        .flight-row:focus-visible { outline:2px solid var(--blue); }
+        .flight-row.selected   { background:var(--blue-l); }
+        .flight-row.confirming { background:var(--green-l); }
+        .fr-code { font-size:.75rem; font-weight:700; color:var(--muted); width:3.5rem; flex-shrink:0; font-family:ui-monospace,monospace; }
+        .fr-time { font-size:1.25rem; font-weight:800; color:var(--navy); width:3.25rem; flex-shrink:0; }
+        .fr-arrow { color:var(--muted); font-size:.8rem; flex-shrink:0; }
+        .fr-dest { flex:1; font-size:.875rem; color:var(--text); }
+        .fr-note { font-size:.7rem; color:var(--muted); margin-top:.15rem; }
+        .flight-row.selected .fr-time { color:var(--blue); }
+        .flight-row.selected .fr-code { color:var(--blue-d); }
+        .skip-flight-link { display:block; text-align:center; font-size:.78rem; color:var(--muted); cursor:pointer; padding:.375rem; text-decoration:underline; text-decoration-style:dotted; }
+        .skip-flight-link:hover { color:var(--text); }
+        .flight-hint { font-size:.75rem; color:var(--green); font-weight:600; margin-bottom:.875rem; padding:.5rem .75rem; background:var(--green-l); border-radius:7px; border:1px solid #c6f6d5; display:none; }
+        .flight-hint.visible { display:block; }
+
+        /* ── Time grid ── */
+        .time-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:.4rem; }
+        @media(max-width:340px){ .time-grid { grid-template-columns:repeat(3,1fr); } }
+        .time-pill {
+            border:1.5px solid var(--border); border-radius:8px; padding:0; font-size:.85rem;
+            cursor:pointer; transition:all .12s; user-select:none; -webkit-tap-highlight-color:transparent;
+            min-height:48px; display:flex; align-items:center; justify-content:center;
+        }
+        .time-pill:hover { border-color:var(--blue); background:var(--blue-l); }
+        .time-pill:focus-visible { outline:2px solid var(--blue); }
+        .time-pill.tp-sel     { border-color:var(--blue); background:var(--blue); color:white; font-weight:600; }
+        .time-pill.tp-suggest { border-color:var(--blue); background:var(--blue-l); font-weight:600; }
+        .time-pill.tp-confirm { border-color:var(--green); background:var(--green); color:white; animation:pop .3s ease; }
+
+        /* ── Review ── */
+        .duration-card { background:var(--blue-l); border:1.5px solid var(--blue-m); border-radius:10px; padding:1rem; text-align:center; margin-bottom:1.25rem; }
+        .dc-nights { font-size:1.625rem; font-weight:800; color:var(--navy); }
+        .dc-dates  { font-size:.8rem; color:var(--muted); margin-top:.15rem; }
+        .review-row { display:flex; align-items:center; padding:.875rem 0; border-bottom:1px solid #f0f4f8; }
+        .review-row:last-child { border-bottom:none; }
+        .rr-icon { font-size:1rem; margin-right:.75rem; flex-shrink:0; line-height:1; }
+        .rr-body { flex:1; min-width:0; }
+        .rr-lbl  { font-size:.72rem; color:var(--muted); }
+        .rr-val  { font-size:.95rem; font-weight:600; color:var(--text); margin-top:.1rem; }
+        .rr-edit { background:none; border:none; color:var(--muted); cursor:pointer; padding:.375rem; border-radius:5px; font-size:.95rem; transition:background .12s,color .12s; flex-shrink:0; line-height:1; }
+        .rr-edit:hover { background:#f0f4f8; color:var(--text); }
+        .rr-edit:focus-visible { outline:2px solid var(--blue); }
+
+        /* ── Loading / CTA ── */
+        .srch-loading { display:none; text-align:center; padding:1.25rem 0 .75rem; color:var(--muted); font-size:.85rem; }
+        .srch-loading.on { display:block; }
+        .spinner { width:28px; height:28px; border:3px solid #e2e8f0; border-top-color:var(--blue); border-radius:50%; animation:spin .75s linear infinite; margin:0 auto .5rem; }
+        @keyframes spin { to{transform:rotate(360deg)} }
+        .btn-success { display:flex; align-items:center; justify-content:center; width:100%; padding:.9rem 2rem; background:var(--green); color:white; border:none; border-radius:9px; font-size:1.05rem; font-weight:600; cursor:pointer; transition:background .12s; -webkit-tap-highlight-color:transparent; }
+        .btn-success:hover { background:var(--green-d); }
+        .btn-success:focus-visible { outline:3px solid var(--blue); outline-offset:2px; }
+
+        footer { display:none; }
+    </style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header role="banner"><span class="brand">Holiday Extras</span></header>
+
+<main id="main" class="container">
+<div class="card">
+
+    <!-- Running summary bar (hidden on step 1) -->
+    <div class="trip-summary" id="tripSummary" aria-live="polite"></div>
+
+    <!-- ── Step 1: Airport ── -->
+    <section class="step active" id="step-1" aria-labelledby="s1h">
+        <div class="step-body">
+            <p class="sec-lbl" id="s1h" style="margin-bottom:1rem">Where are you flying from?</p>
+            <button class="location-btn" id="locationBtn" onclick="requestLocation()">
+                <span aria-hidden="true">📍</span> Find nearest airports
+            </button>
+            <p class="sec-lbl">Popular airports</p>
+            <div class="airport-grid" id="popularGrid" role="list" aria-label="Popular airports"></div>
+            <p class="sec-lbl" style="margin-top:.5rem">All airports</p>
+            <div class="airport-list" id="allList" role="list" aria-label="All airports"></div>
+        </div>
+    </section>
+
+    <!-- ── Step 2: Drop-off date ── -->
+    <section class="step" id="step-2" aria-labelledby="s2h">
+        <div class="step-bar">
+            <button class="back-btn" onclick="goToStep(1)">← Back</button>
+            <span class="step-title" id="s2h">Drop-off date</span>
+        </div>
+        <div class="step-body">
+            <div class="date-list" id="dropoffDateList" role="listbox" aria-label="Select drop-off date"></div>
+        </div>
+    </section>
+
+    <!-- ── Step 3: Drop-off time (+ outbound flight) ── -->
+    <section class="step" id="step-3" aria-labelledby="s3h">
+        <div class="step-bar">
+            <button class="back-btn" onclick="goToStep(2)">← Back</button>
+            <span class="step-title" id="s3h">Drop-off time</span>
+        </div>
+        <div class="step-body">
+            <div class="flight-section" id="outboundFlightSection">
+                <p class="sec-lbl">Your outbound flight <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.7rem;color:var(--muted)">(optional — selects a suggested time)</span></p>
+                <div class="flight-list" id="outboundFlightList" role="listbox" aria-label="Outbound flights"></div>
+                <span class="skip-flight-link" tabindex="0" onclick="skipFlight('outbound')" onkeydown="if(event.key==='Enter')skipFlight('outbound')">Skip — I don't know my flight yet</span>
+            </div>
+            <div class="flight-hint" id="outboundHint"></div>
+            <p class="step-q">What time will you drop your car off?</p>
+            <div class="time-grid" id="dropoffTimeGrid" role="listbox" aria-label="Drop-off time"></div>
+        </div>
+    </section>
+
+    <!-- ── Step 4: Return date ── -->
+    <section class="step" id="step-4" aria-labelledby="s4h">
+        <div class="step-bar">
+            <button class="back-btn" onclick="goToStep(3)">← Back</button>
+            <span class="step-title" id="s4h">Return date</span>
+        </div>
+        <div class="step-body">
+            <div class="ctx-bar" id="returnCtx"></div>
+            <div class="date-list" id="returnDateList" role="listbox" aria-label="Select return date"></div>
+        </div>
+    </section>
+
+    <!-- ── Step 5: Return time (+ return flight) ── -->
+    <section class="step" id="step-5" aria-labelledby="s5h">
+        <div class="step-bar">
+            <button class="back-btn" onclick="goToStep(4)">← Back</button>
+            <span class="step-title" id="s5h">Return time</span>
+        </div>
+        <div class="step-body">
+            <div class="flight-section" id="returnFlightSection">
+                <p class="sec-lbl">Your return flight <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.7rem;color:var(--muted)">(optional)</span></p>
+                <div class="flight-list" id="returnFlightList" role="listbox" aria-label="Return flights"></div>
+                <span class="skip-flight-link" tabindex="0" onclick="skipFlight('return')" onkeydown="if(event.key==='Enter')skipFlight('return')">Skip — I don't know my return flight yet</span>
+            </div>
+            <div class="flight-hint" id="returnHint"></div>
+            <p class="step-q">What time will you collect your car?</p>
+            <div class="time-grid" id="returnTimeGrid" role="listbox" aria-label="Return time"></div>
+        </div>
+    </section>
+
+    <!-- ── Step 6: Review ── -->
+    <section class="step" id="step-6" aria-labelledby="s6h">
+        <div class="step-bar">
+            <button class="back-btn" onclick="goToStep(5)">← Back</button>
+            <span class="step-title" id="s6h">Your search</span>
+        </div>
+        <div class="step-body">
+            <div id="durationCard"></div>
+            <div id="reviewRows"></div>
+            <div style="margin-top:1.25rem">
+                <div class="srch-loading" id="srchLoading" aria-live="polite">
+                    <div class="spinner" role="status" aria-label="Finding deals"></div>
+                    <p>Finding the best deals&hellip;</p>
+                </div>
+                <button class="btn-success" id="searchBtn" onclick="submitSearch()" style="display:none">Find Parking &rarr;</button>
+            </div>
+            <p style="margin-top:.75rem;font-size:.72rem;color:var(--muted);text-align:center;line-height:1.6">
+                You&rsquo;ll be taken to Holiday Extras to view prices and book.
+            </p>
+        </div>
+    </section>
+
+</div><!-- /card -->
+</main>
+
+<footer><p>Powered by <a href="https://www.holidayextras.com" rel="noopener noreferrer" target="_blank">Holiday Extras</a></p></footer>
+
+<script>
+// ─── Airport data ─────────────────────────────────────────────────────────────
+const POPULAR = [
+    { code:'LHR', name:'London Heathrow',       lat:51.4706, lon:-0.4619 },
+    { code:'LGW', name:'London Gatwick',         lat:51.1537, lon:-0.1821 },
+    { code:'MAN', name:'Manchester',             lat:53.3537, lon:-2.2750 },
+    { code:'STN', name:'London Stansted',        lat:51.8850, lon: 0.2350 },
+    { code:'LTN', name:'London Luton',           lat:51.8747, lon:-0.3683 },
+    { code:'BHX', name:'Birmingham',             lat:52.4539, lon:-1.7480 },
+    { code:'EDI', name:'Edinburgh',              lat:55.9500, lon:-3.3725 },
+    { code:'GLA', name:'Glasgow',                lat:55.8719, lon:-4.4330 },
+];
+const OTHERS = [
+    { code:'LPL', name:'Liverpool John Lennon', lat:53.3336, lon:-2.8497 },
+    { code:'BRS', name:'Bristol',               lat:51.3827, lon:-2.7191 },
+    { code:'NCL', name:'Newcastle',             lat:55.0375, lon:-1.6917 },
+    { code:'LBA', name:'Leeds Bradford',        lat:53.8659, lon:-1.6606 },
+    { code:'EMA', name:'East Midlands',         lat:52.8311, lon:-1.3281 },
+    { code:'BHD', name:'Belfast City',          lat:54.6175, lon:-5.8725 },
+    { code:'BFS', name:'Belfast International',lat:54.6575, lon:-6.2158 },
+    { code:'ABZ', name:'Aberdeen',              lat:57.2019, lon:-2.1978 },
+    { code:'CWL', name:'Cardiff',               lat:51.3967, lon:-3.3433 },
+    { code:'SOU', name:'Southampton',           lat:50.9503, lon:-1.3569 },
+    { code:'EXT', name:'Exeter',                lat:50.7344, lon:-3.4139 },
+    { code:'NWI', name:'Norwich',               lat:52.6758, lon: 1.2828 },
+    { code:'INV', name:'Inverness',             lat:57.5425, lon:-4.0475 },
+    { code:'HUY', name:'Humberside',            lat:53.5744, lon:-0.3508 },
+    { code:'MME', name:'Teesside',              lat:54.5092, lon:-1.4294 },
+    { code:'NQY', name:'Newquay Cornwall',      lat:50.4406, lon:-4.9955 },
+];
+const ALL = POPULAR.concat(OTHERS);
+
+// ─── Fake flight data ─────────────────────────────────────────────────────────
+const FLIGHT_TEMPLATES = {
+    LHR: { al:['BA','VS','AA','EK','LH'],  dests:['New York','Dubai','Los Angeles','Sydney','Singapore','Toronto','Hong Kong','Cape Town','Johannesburg','Mumbai'] },
+    LGW: { al:['EZY','BA','TOM','FR','DY'],dests:['Málaga','Alicante','Faro','Barcelona','Tenerife','Ibiza','Amsterdam','Geneva','Rome','Lanzarote'] },
+    MAN: { al:['EZY','TOM','BA','BY','FR'],dests:['Tenerife','Lanzarote','Alicante','Faro','New York','Dubai','Málaga','Barcelona','Majorca','Corfu'] },
+    STN: { al:['FR','EZY','W6','VY'],      dests:['Dublin','Faro','Wrocław','Barcelona','Rome','Alicante','Málaga','Lisbon','Tenerife','Kraków'] },
+    LTN: { al:['EZY','W6','TOM'],          dests:['Amsterdam','Alicante','Geneva','Faro','Málaga','Ibiza','Barcelona','Rome','Split','Athens'] },
+    BHX: { al:['EZY','TOM','BY','FR'],     dests:['Alicante','Faro','Tenerife','Málaga','Ibiza','Majorca','Gran Canaria','Amsterdam','Dubai'] },
+    EDI: { al:['EZY','FR','BA','LG'],      dests:['Amsterdam','Alicante','Barcelona','Dublin','London','Paris','Faro','Tenerife','New York'] },
+    GLA: { al:['EZY','FR','BA'],           dests:['London','Dublin','Amsterdam','Alicante','Faro','Tenerife','Lanzarote','Málaga'] },
+    DEFAULT:{ al:['EZY','BA','FR','TOM'],  dests:['Amsterdam','Alicante','Faro','Barcelona','Málaga','Tenerife','Dublin','Paris','Rome'] },
+};
+
+function genFlights(airportCode, date, seedOffset) {
+    const tmpl = FLIGHT_TEMPLATES[airportCode] || FLIGHT_TEMPLATES.DEFAULT;
+    const seed = (date.getDate() * 97 + date.getMonth() * 31 + (seedOffset || 0)) & 0xffff;
+    const hours = [];
+    // Pick 5 varied departure times across the day
+    const base = [5, 7, 9, 11, 13, 15, 17, 19];
+    for (let i = 0; i < 5; i++) {
+        hours.push(base[(seed + i * 3) % base.length]);
+    }
+    hours.sort((a, b) => a - b);
+    return hours.map((h, i) => {
+        const mins     = [0, 15, 30, 45][(seed + i * 7) % 4];
+        const airline  = tmpl.al[(seed + i * 5) % tmpl.al.length];
+        const dest     = tmpl.dests[(seed + i * 11) % tmpl.dests.length];
+        const num      = ((seed * 3 + i * 17 + 100) % 899) + 100;
+        return { code: airline + num, airline, dest, hour: h, minute: mins };
+    });
+}
+
+// ─── State ────────────────────────────────────────────────────────────────────
+const state = {
+    airport:         null,
+    dropoffDate:     null,
+    dropoffTime:     null,
+    dropoffFlight:   null,  // { code, dest, hour } | null
+    returnDate:      null,
+    returnTime:      null,
+    returnFlight:    null,
+};
+let currentStep = 1;
+
+// ─── Tracking ─────────────────────────────────────────────────────────────────
+window.dataLayer = window.dataLayer || [];
+function track(ev, data) { window.dataLayer.push(Object.assign({ event: ev }, data || {})); }
+
+// ─── Trip summary bar ─────────────────────────────────────────────────────────
+function updateSummary() {
+    const s   = state;
+    const bar = document.getElementById('tripSummary');
+    const sep = '<span class="ts-sep" aria-hidden="true">·</span>';
+    const parts = [];
+
+    if (s.airport) {
+        parts.push(s.airport.name + ' parking');
+    }
+    if (s.dropoffDate) {
+        parts.push(fmtSummaryDate(s.dropoffDate));
+    }
+    if (s.dropoffTime !== null) {
+        parts.push('drop-off ' + pad2(s.dropoffTime) + ':00');
+    }
+    if (s.returnDate) {
+        parts.push('return ' + fmtSummaryDate(s.returnDate));
+    }
+    if (s.returnTime !== null) {
+        parts.push('collect ' + pad2(s.returnTime) + ':00');
+    }
+
+    if (parts.length > 0 && currentStep > 1) {
+        bar.innerHTML = parts.join(' ' + sep + ' ');
+        bar.classList.add('visible');
+    } else {
+        bar.classList.remove('visible');
+    }
+}
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+function goToStep(n) {
+    document.getElementById('step-' + currentStep).classList.remove('active');
+    currentStep = n;
+    document.getElementById('step-' + n).classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    updateSummary();
+    track('parking_step_view', { step: n });
+
+    if (n === 3) setupDropoffTime();
+    if (n === 4) setupReturnDate();
+    if (n === 5) setupReturnTime();
+    if (n === 6) buildReview();
+}
+
+// ─── Step 1: Airport ─────────────────────────────────────────────────────────
+function renderPopular(list) {
+    document.getElementById('popularGrid').innerHTML = list.map(a =>
+        `<div class="a-tile" id="tile-${a.code}" role="listitem" tabindex="0"
+              aria-label="${a.name} (${a.code})"
+              onclick="pickAirport('${a.code}','${esc(a.name)}')"
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickAirport('${a.code}','${esc(a.name)}');}">
+             <div class="a-code">${a.code}</div>
+             <div class="a-name">${esc(a.name)}</div>
+         </div>`).join('');
+}
+
+function renderAllList(list) {
+    document.getElementById('allList').innerHTML = list.map(a =>
+        `<div class="a-row" id="row-${a.code}" role="listitem" tabindex="0"
+              aria-label="${a.name} (${a.code})"
+              onclick="pickAirport('${a.code}','${esc(a.name)}')"
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickAirport('${a.code}','${esc(a.name)}');}">
+             <span class="a-row-code">${a.code}</span>
+             <span class="a-row-name">${esc(a.name)}</span>
+         </div>`).join('');
+}
+
+function pickAirport(code, name) {
+    if (state.airport && state.airport.code === code) return;
+    state.airport = { code, name };
+    track('parking_airport_selected', { airport_code: code, airport_name: name });
+    document.querySelectorAll('.a-tile, .a-row').forEach(el => el.classList.remove('selected','confirming'));
+    const el = document.getElementById('tile-' + code) || document.getElementById('row-' + code);
+    if (el) {
+        el.classList.add('selected');
+        setTimeout(() => el.classList.add('confirming'), 120);
+        setTimeout(() => goToStep(2), 650);
+    }
+}
+
+function requestLocation() {
+    const btn = document.getElementById('locationBtn');
+    if (!navigator.geolocation) { btn.textContent = '📍 Not supported'; return; }
+    btn.disabled = true;
+    btn.innerHTML = '<span aria-hidden="true">📍</span> Finding your location&hellip;';
+    navigator.geolocation.getCurrentPosition(
+        pos => {
+            const { latitude: lat, longitude: lon } = pos.coords;
+            const sorted = ALL.slice().sort((a, b) => haversine(lat,lon,a.lat,a.lon) - haversine(lat,lon,b.lat,b.lon));
+            renderPopular(sorted.slice(0, 8));
+            renderAllList(sorted.slice(8));
+            btn.innerHTML = '<span aria-hidden="true">✓</span> Sorted by nearest airport';
+            btn.classList.add('done'); btn.disabled = false;
+            track('parking_location_used');
+        },
+        () => { btn.innerHTML = '<span aria-hidden="true">📍</span> Could not find location — try again'; btn.disabled = false; }
+    );
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+    const R=6371, dl=(lat2-lat1)*Math.PI/180, dg=(lon2-lon1)*Math.PI/180;
+    const a=Math.sin(dl/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dg/2)**2;
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// ─── Date list ────────────────────────────────────────────────────────────────
+function renderDateList(containerId, minDate, maxDays, selectedDate) {
+    const container = document.getElementById(containerId);
+    const min = minDate || today();
+    const rows = []; let lastMonth = -1;
+
+    for (let i = 0; i < maxDays; i++) {
+        const d  = new Date(min.getFullYear(), min.getMonth(), min.getDate() + i);
+        const mo = d.getFullYear() * 100 + d.getMonth();
+        if (mo !== lastMonth) {
+            rows.push(`<div class="date-month-hdr" aria-hidden="true">${MONTHS[d.getMonth()]} ${d.getFullYear()}</div>`);
+            lastMonth = mo;
+        }
+        const ds      = fmtISO(d);
+        const isToday = d.getTime() === today().getTime();
+        const isSel   = selectedDate && d.getTime() === selectedDate.getTime();
+        rows.push(
+            `<div class="date-row${isSel?' selected':''}" data-date="${ds}" tabindex="0"
+                  role="option" aria-selected="${isSel}"
+                  aria-label="${fmtDisplay(d)}${isToday?' — today':''}"
+                  onclick="pickDate('${containerId}','${ds}')"
+                  onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickDate('${containerId}','${ds}');}">
+               <span class="dr-day">${DAYS[d.getDay()].slice(0,3)}</span>
+               <span class="dr-num">${d.getDate()}</span>
+               <span class="dr-rest">${MONTHS[d.getMonth()]}${isToday?'<span class="today-pill">Today</span>':''}</span>
+             </div>`
+        );
+    }
+    container.innerHTML = rows.join('');
+    if (selectedDate) {
+        const sel = container.querySelector('.date-row.selected');
+        if (sel) setTimeout(() => sel.scrollIntoView({ block:'center' }), 50);
+    }
+}
+
+function pickDate(containerId, dateStr) {
+    const d         = parseISO(dateStr);
+    const isDropoff = containerId === 'dropoffDateList';
+    if (isDropoff) {
+        state.dropoffDate   = d;
+        state.dropoffFlight = null;
+        if (state.returnDate && state.returnDate < d) { state.returnDate = null; state.returnTime = null; state.returnFlight = null; }
+        renderDateList('dropoffDateList', today(), 365, d);
+        track('parking_dropoff_date_set', { date: dateStr });
+    } else {
+        state.returnDate   = d;
+        state.returnFlight = null;
+        renderDateList('returnDateList', state.dropoffDate || today(), 100, d);
+        track('parking_return_date_set', { date: dateStr });
+    }
+    const cell = document.querySelector('#' + containerId + ' [data-date="' + dateStr + '"]');
+    if (cell) {
+        setTimeout(() => cell.classList.add('confirming'), 80);
+        setTimeout(() => goToStep(isDropoff ? 3 : 5), 650);
+    }
+}
+
+// ─── Step 3: Drop-off time ────────────────────────────────────────────────────
+function setupDropoffTime() {
+    if (state.airport && state.dropoffDate) {
+        const flights = genFlights(state.airport.code, state.dropoffDate, 0);
+        renderFlightList('outboundFlightList', flights, 'outbound');
+    }
+    const suggestedHour = state.dropoffFlight ? Math.max(0, state.dropoffFlight.hour - 3) : state.dropoffTime;
+    renderTimePicker('dropoffTimeGrid', state.dropoffTime, suggestedHour, onDropoffTime);
+    document.getElementById('outboundHint').classList.remove('visible');
+}
+
+function onDropoffTime(h) {
+    state.dropoffTime = h;
+    const suggested = state.dropoffFlight ? Math.max(0, state.dropoffFlight.hour - 3) : null;
+    renderTimePicker('dropoffTimeGrid', h, suggested, onDropoffTime);
+    track('parking_dropoff_time_set', { hour: h });
+    const pills = document.querySelectorAll('#dropoffTimeGrid .time-pill');
+    if (pills[h]) setTimeout(() => pills[h].classList.add('tp-confirm'), 80);
+    updateSummary();
+    setTimeout(() => goToStep(4), 600);
+}
+
+// ─── Step 4: Return date ─────────────────────────────────────────────────────
+function setupReturnDate() {
+    const ctx = document.getElementById('returnCtx');
+    if (state.dropoffDate && state.dropoffTime !== null) {
+        ctx.innerHTML = 'Dropping off: <strong>' + fmtDisplay(state.dropoffDate) + ' at ' + pad2(state.dropoffTime) + ':00</strong>';
+    }
+    renderDateList('returnDateList', state.dropoffDate || today(), 100, state.returnDate);
+}
+
+// ─── Step 5: Return time ─────────────────────────────────────────────────────
+function setupReturnTime() {
+    if (state.airport && state.returnDate) {
+        const flights = genFlights(state.airport.code, state.returnDate, 500);
+        renderFlightList('returnFlightList', flights, 'return');
+    }
+    const suggestedHour = state.returnFlight ? Math.min(23, state.returnFlight.hour + 2) : state.returnTime;
+    renderTimePicker('returnTimeGrid', state.returnTime, suggestedHour, onReturnTime);
+    document.getElementById('returnHint').classList.remove('visible');
+}
+
+function onReturnTime(h) {
+    state.returnTime = h;
+    const suggested = state.returnFlight ? Math.min(23, state.returnFlight.hour + 2) : null;
+    renderTimePicker('returnTimeGrid', h, suggested, onReturnTime);
+    track('parking_return_time_set', { hour: h });
+    const pills = document.querySelectorAll('#returnTimeGrid .time-pill');
+    if (pills[h]) setTimeout(() => pills[h].classList.add('tp-confirm'), 80);
+    updateSummary();
+    setTimeout(() => goToStep(6), 600);
+}
+
+// ─── Flight picker ────────────────────────────────────────────────────────────
+function renderFlightList(containerId, flights, type) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = flights.map((f, i) => {
+        const note = type === 'outbound'
+            ? 'Suggested drop-off: ' + pad2(Math.max(0, f.hour - 3)) + ':00'
+            : 'Suggested collection: ' + pad2(Math.min(23, f.hour + 2)) + ':00';
+        const isSel = type === 'outbound'
+            ? state.dropoffFlight && state.dropoffFlight.code === f.code
+            : state.returnFlight  && state.returnFlight.code  === f.code;
+        return `<div class="flight-row${isSel?' selected':''}"
+                     role="option" aria-selected="${isSel}" tabindex="0"
+                     data-flight-idx="${i}" data-type="${type}"
+                     onclick="pickFlight('${type}',${i})"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickFlight('${type}',${i});}">
+                    <span class="fr-code">${esc(f.code)}</span>
+                    <span class="fr-time">${pad2(f.hour)}:${pad2(f.minute)}</span>
+                    <span class="fr-arrow" aria-hidden="true">→</span>
+                    <span class="fr-dest">
+                        <div>${esc(f.dest)}</div>
+                        <div class="fr-note">${note}</div>
+                    </span>
+                </div>`;
+    }).join('');
+    // Store flights on container for later lookup
+    container._flights = flights;
+}
+
+function pickFlight(type, idx) {
+    const containerId = type === 'outbound' ? 'outboundFlightList' : 'returnFlightList';
+    const container   = document.getElementById(containerId);
+    const flights     = container._flights || [];
+    const f           = flights[idx];
+    if (!f) return;
+
+    document.querySelectorAll('#' + containerId + ' .flight-row').forEach(el => el.classList.remove('selected','confirming'));
+    const el = container.querySelectorAll('.flight-row')[idx];
+    if (el) { el.classList.add('selected'); setTimeout(() => el.classList.add('confirming'), 80); }
+
+    if (type === 'outbound') {
+        state.dropoffFlight = f;
+        const suggested = Math.max(0, f.hour - 3);
+        renderTimePicker('dropoffTimeGrid', state.dropoffTime, suggested, onDropoffTime);
+        const hint = document.getElementById('outboundHint');
+        hint.textContent = '✈ ' + f.code + ' at ' + pad2(f.hour) + ':' + pad2(f.minute) + ' — suggested drop-off time highlighted below';
+        hint.classList.add('visible');
+        track('parking_outbound_flight_selected', { code: f.code, dest: f.dest, hour: f.hour });
+    } else {
+        state.returnFlight = f;
+        const suggested = Math.min(23, f.hour + 2);
+        renderTimePicker('returnTimeGrid', state.returnTime, suggested, onReturnTime);
+        const hint = document.getElementById('returnHint');
+        hint.textContent = '✈ ' + f.code + ' lands ~' + pad2(f.hour) + ':' + pad2(f.minute) + ' — suggested collection time highlighted below';
+        hint.classList.add('visible');
+        track('parking_return_flight_selected', { code: f.code, dest: f.dest, hour: f.hour });
+    }
+}
+
+function skipFlight(type) {
+    const containerId = type === 'outbound' ? 'outboundFlightList' : 'returnFlightList';
+    document.querySelectorAll('#' + containerId + ' .flight-row').forEach(el => el.classList.remove('selected','confirming'));
+    if (type === 'outbound') { state.dropoffFlight = null; renderTimePicker('dropoffTimeGrid', state.dropoffTime, null, onDropoffTime); document.getElementById('outboundHint').classList.remove('visible'); }
+    else                     { state.returnFlight  = null; renderTimePicker('returnTimeGrid',  state.returnTime,  null, onReturnTime);  document.getElementById('returnHint').classList.remove('visible'); }
+}
+
+// ─── Time picker ─────────────────────────────────────────────────────────────
+function renderTimePicker(containerId, selectedHour, suggestedHour, cb) {
+    const grid = document.getElementById(containerId);
+    grid.innerHTML = '';
+    for (let h = 0; h < 24; h++) {
+        const label  = pad2(h) + ':00';
+        const isSel  = selectedHour === h;
+        const isSugg = !isSel && suggestedHour === h;
+        const pill   = document.createElement('div');
+        pill.className   = 'time-pill' + (isSel ? ' tp-sel' : isSugg ? ' tp-suggest' : '');
+        pill.textContent = label;
+        pill.setAttribute('role', 'option');
+        pill.setAttribute('aria-selected', String(isSel));
+        pill.setAttribute('tabindex', '0');
+        pill.setAttribute('aria-label', label + (isSugg ? ' (suggested)' : ''));
+        pill.addEventListener('click',   () => cb(h));
+        pill.addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' '){ e.preventDefault(); cb(h); } });
+        grid.appendChild(pill);
+    }
+}
+
+// ─── Step 6: Review ───────────────────────────────────────────────────────────
+function buildReview() {
+    const { airport:a, dropoffDate:dd, dropoffTime:dt, dropoffFlight:df, returnDate:rd, returnTime:rt, returnFlight:rf } = state;
+    const nights = Math.round((rd - dd) / 86400000);
+
+    document.getElementById('durationCard').innerHTML =
+        `<div class="duration-card">
+            <div class="dc-nights">${nights} night${nights===1?'':'s'}</div>
+            <div class="dc-dates">${fmtDisplay(dd)} &ndash; ${fmtDisplay(rd)}</div>
+         </div>`;
+
+    const flightNote = (f, prefix) => f ? `<div style="font-size:.72rem;color:var(--muted);margin-top:.2rem">${prefix} ${f.code} → ${f.dest}</div>` : '';
+
+    document.getElementById('reviewRows').innerHTML =
+        rrRow('✈️', 'Airport',   a.name + ' (' + a.code + ')', 1) +
+        rrRow('🚗', 'Drop-off',  fmtDisplay(dd) + ' at ' + pad2(dt) + ':00', 2, flightNote(df, 'Flight')) +
+        rrRow('🏠', 'Return',    fmtDisplay(rd) + ' at ' + pad2(rt) + ':00', 4, flightNote(rf, 'Flight'));
+
+    const url = buildSearchUrl();
+    let link = document.getElementById('hx-pf');
+    if (!link) { link=document.createElement('link'); link.id='hx-pf'; link.rel='prefetch'; document.head.appendChild(link); }
+    link.href = url;
+
+    const loading=document.getElementById('srchLoading'), btn=document.getElementById('searchBtn');
+    loading.classList.add('on'); btn.style.display='none';
+    setTimeout(() => { loading.classList.remove('on'); btn.style.display=''; }, 1100);
+}
+
+function rrRow(icon, label, value, step, extra) {
+    return `<div class="review-row">
+        <span class="rr-icon" aria-hidden="true">${icon}</span>
+        <div class="rr-body">
+            <div class="rr-lbl">${esc(label)}</div>
+            <div class="rr-val">${esc(value)}${extra||''}</div>
+        </div>
+        <button class="rr-edit" onclick="goToStep(${step})" aria-label="Edit ${esc(label)}">&#9998;&#65039;</button>
+    </div>`;
+}
+
+// ─── Submit ───────────────────────────────────────────────────────────────────
+function submitSearch() {
+    track('parking_search_submitted', {
+        airport_code:  state.airport.code,
+        dropoff_date:  fmtISO(state.dropoffDate), dropoff_time: state.dropoffTime,
+        return_date:   fmtISO(state.returnDate),  return_time:  state.returnTime,
+        nights: Math.round((state.returnDate - state.dropoffDate) / 86400000),
+        outbound_flight: state.dropoffFlight ? state.dropoffFlight.code : null,
+        return_flight:   state.returnFlight  ? state.returnFlight.code  : null,
+    });
+    window.location.href = buildSearchUrl();
+}
+
+// ─── URL builder ──────────────────────────────────────────────────────────────
+function buildSearchUrl() {
+    const { airport:a, dropoffDate:dd, dropoffTime:dt, returnDate:rd, returnTime:rt } = state;
+    const p = new URLSearchParams({
+        Referer:'https://www.holidayextras.com/', agent:'WEB1', domain:'www.holidayextras.com',
+        lang:'en', product:'cp', request:'1', rule_set:'hx', selectProduct:'cp', tc:'1', search:'',
+        Location:a.code, ArrivalTime:toHHMM(dt), DepartTime:toHHMM(rt),
+        flightTime:'', flight_number:'default', terminal:'', CampaignID:'65642',
+    });
+    const ah = toHuman(dd).replace(/ /g,'+'), dh = toHuman(rd).replace(/ /g,'+');
+    const ad = toDDMMYY(dd).replace(/\//g,'%2F'), dD = toDDMMYY(rd).replace(/\//g,'%2F');
+    return `https://www.holidayextras.com/static/?${p}&Arrival=${ah}&ArrivalDate=${ad}&Depart=${dh}&DepartDate=${dD}`;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const SMON   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function today()     { const d=new Date(); d.setHours(0,0,0,0); return d; }
+function fmtISO(d)   { return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function parseISO(s) { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function fmtDisplay(d) { return DAYS[d.getDay()]+' '+d.getDate()+' '+SMON[d.getMonth()]+' '+d.getFullYear(); }
+function fmtSummaryDate(d) { return DAYS[d.getDay()]+' '+d.getDate()+' '+SMON[d.getMonth()]; }
+function toDDMMYY(d) { return pad2(d.getDate())+'/'+pad2(d.getMonth()+1)+'/'+String(d.getFullYear()).slice(2); }
+function toHuman(d)  {
+    const n=d.getDate(), s=(n>=11&&n<=13)?'th':(['th','st','nd','rd'][n%10]||'th');
+    return DAYS[d.getDay()]+' '+n+s+' '+SMON[d.getMonth()]+' '+String(d.getFullYear()).slice(2);
+}
+function toHHMM(h) { return pad2(h)+'00'; }
+function pad2(n)   { return String(n).padStart(2,'0'); }
+function esc(s)    { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+(function init() {
+    renderPopular(POPULAR);
+    renderAllList(OTHERS);
+    renderDateList('dropoffDateList', today(), 365, null);
+    track('parking_wizard_start');
+    track('parking_step_view', { step: 1 });
+})();
+</script>
+</body>
+</html>

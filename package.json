@@ -1,0 +1,15 @@
+{
+  "name": "parking-wizard",
+  "version": "1.0.0",
+  "description": "Holiday Extras airport parking wizard",
+  "scripts": {
+    "start": "http-server . -p ${PORT:-8080} -c-1 --cors",
+    "dev": "http-server . -p 8080 -c-1 --cors -o"
+  },
+  "dependencies": {
+    "http-server": "^14.1.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
