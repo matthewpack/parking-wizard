@@ -54,14 +54,21 @@
         }
 
         /* ── Header ── */
-        header {
-            background: var(--purple);
-            flex-shrink: 0;
-            padding: .625rem 1.25rem;
-            display: flex;
-            align-items: center;
+        header { flex-shrink: 0; line-height: 0; }
+        .header-logo {
+            display: block;
+            width: 100%;
+            height: auto;
         }
-        .header-logo { display: block; height: 36px; width: auto; }
+        @media (min-width: 640px) {
+            .header-logo {
+                height: 72px;
+                width: 100%;
+                background: #552e92;
+                object-fit: contain;
+                object-position: left center;
+            }
+        }
 
         /* ── Container ── */
         .container {
