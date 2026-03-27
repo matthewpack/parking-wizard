@@ -472,8 +472,10 @@ function pickAirport(code, name) {
     }
 }
 
-function applyLocation(lat, lon) {
+function applyLocation(lat, lon, label) {
+    console.log('[location] source:', label, '| coords:', lat.toFixed(4), lon.toFixed(4));
     const sorted = ALL.slice().sort((a, b) => haversine(lat,lon,a.lat,a.lon) - haversine(lat,lon,b.lat,b.lon));
+    console.log('[location] nearest airports:', sorted.slice(0,4).map(a => `${a.code} (${haversine(lat,lon,a.lat,a.lon).toFixed(0)}km)`));
     renderPopular(sorted.slice(0, 4));
     renderAllList(sorted.slice(4));
     track('parking_location_used');
@@ -481,16 +483,20 @@ function applyLocation(lat, lon) {
 
 // Runs silently on page load — no permission needed
 function ipLocationLookup() {
+    console.log('[location] IP lookup starting...');
     fetch('https://ipapi.co/json/')
         .then(r => r.json())
         .then(d => {
             if (d.latitude && d.longitude) {
-                applyLocation(d.latitude, d.longitude);
+                applyLocation(d.latitude, d.longitude, 'IP (' + (d.city || '?') + ')');
                 const btn = document.getElementById('locationBtn');
-                if (btn) btn.innerHTML = '<span aria-hidden="true">📍</span> Use precise GPS location';
+                if (btn) {
+                    btn.innerHTML = '<span aria-hidden="true">✓</span> Sorted by nearest · tap for GPS precision';
+                    btn.classList.add('done');
+                }
             }
         })
-        .catch(() => {}); // fail silently — default airport list remains
+        .catch(e => console.warn('[location] IP lookup failed:', e));
 }
 
 // Triggered by button click — requests high-accuracy GPS
@@ -501,20 +507,23 @@ function requestLocation() {
         return;
     }
     btn.disabled = true;
-    btn.innerHTML = '<span aria-hidden="true">📍</span> Getting precise location&hellip;';
+    btn.classList.remove('done');
+    btn.innerHTML = '<span aria-hidden="true">📍</span> Getting precise GPS location&hellip;';
+    console.log('[location] GPS lookup starting...');
     navigator.geolocation.getCurrentPosition(
         pos => {
-            applyLocation(pos.coords.latitude, pos.coords.longitude);
+            applyLocation(pos.coords.latitude, pos.coords.longitude, 'GPS (±' + Math.round(pos.coords.accuracy) + 'm)');
             btn.innerHTML = '<span aria-hidden="true">✓</span> Sorted by precise GPS location';
             btn.classList.add('done'); btn.disabled = false;
         },
         err => {
+            console.warn('[location] GPS error — code:', err.code, err.message);
             let msg = 'Could not get GPS — try again';
             if (err.code === 1) msg = 'GPS blocked — allow location in browser settings';
             btn.innerHTML = `<span aria-hidden="true">📍</span> ${msg}`;
             btn.disabled = false;
         },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }
+        { enableHighAccuracy: true, maximumAge: 60000, timeout: 30000 }
     );
 }
 
