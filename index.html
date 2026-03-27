@@ -215,7 +215,7 @@
         <div class="step-body">
             <p class="sec-lbl" id="s1h" style="margin-bottom:1rem">Where are you flying from?</p>
             <button class="location-btn" id="locationBtn" onclick="requestLocation()">
-                <span aria-hidden="true">📍</span> Find nearest airports
+                <span aria-hidden="true">📍</span> Use precise GPS location
             </button>
             <p class="sec-lbl">Popular airports</p>
             <div class="airport-grid" id="popularGrid" role="list" aria-label="Popular airports"></div>
@@ -473,28 +473,44 @@ function pickAirport(code, name) {
 }
 
 function applyLocation(lat, lon) {
-    const btn = document.getElementById('locationBtn');
     const sorted = ALL.slice().sort((a, b) => haversine(lat,lon,a.lat,a.lon) - haversine(lat,lon,b.lat,b.lon));
     renderPopular(sorted.slice(0, 4));
     renderAllList(sorted.slice(4));
-    btn.innerHTML = '<span aria-hidden="true">✓</span> Sorted by nearest airport';
-    btn.classList.add('done'); btn.disabled = false;
     track('parking_location_used');
 }
 
+// Runs silently on page load — no permission needed
+function ipLocationLookup() {
+    fetch('https://ipapi.co/json/')
+        .then(r => r.json())
+        .then(d => {
+            if (d.latitude && d.longitude) {
+                applyLocation(d.latitude, d.longitude);
+                const btn = document.getElementById('locationBtn');
+                if (btn) btn.innerHTML = '<span aria-hidden="true">📍</span> Use precise GPS location';
+            }
+        })
+        .catch(() => {}); // fail silently — default airport list remains
+}
+
+// Triggered by button click — requests high-accuracy GPS
 function requestLocation() {
     const btn = document.getElementById('locationBtn');
     if (!navigator.geolocation) {
-        btn.innerHTML = '<span aria-hidden="true">📍</span> Location not supported in this browser';
+        btn.innerHTML = '<span aria-hidden="true">📍</span> GPS not supported in this browser';
         return;
     }
     btn.disabled = true;
-    btn.innerHTML = '<span aria-hidden="true">📍</span> Finding your location&hellip;';
+    btn.innerHTML = '<span aria-hidden="true">📍</span> Getting precise location&hellip;';
     navigator.geolocation.getCurrentPosition(
-        pos => applyLocation(pos.coords.latitude, pos.coords.longitude),
+        pos => {
+            applyLocation(pos.coords.latitude, pos.coords.longitude);
+            btn.innerHTML = '<span aria-hidden="true">✓</span> Sorted by precise GPS location';
+            btn.classList.add('done'); btn.disabled = false;
+        },
         err => {
-            let msg = 'Could not get location — try again';
-            if (err.code === 1) msg = 'Location blocked — allow it in your browser settings';
+            let msg = 'Could not get GPS — try again';
+            if (err.code === 1) msg = 'GPS blocked — allow location in browser settings';
             btn.innerHTML = `<span aria-hidden="true">📍</span> ${msg}`;
             btn.disabled = false;
         },
@@ -793,6 +809,7 @@ function esc(s)    { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 (function init() {
     renderPopular(POPULAR);
     renderAllList(OTHERS);
+    ipLocationLookup(); // silently sort by nearest on load
     renderDateList('dropoffDateList', today(), 365, null);
     track('parking_wizard_start');
     track('parking_step_view', { step: 1 });
