@@ -2,208 +2,302 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <meta name="description" content="Book airport parking with Holiday Extras at all major UK airports.">
-    <meta name="theme-color" content="#1e3a5f">
+    <meta name="theme-color" content="#312782">
     <title>Airport Parking | Holiday Extras</title>
+    <link rel="preconnect" href="https://www.holidayextras.com">
+    <link rel="dns-prefetch" href="https://www.holidayextras.com">
+    <link rel="preload" as="image" fetchpriority="high" href="get-holiday-ready.png">
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="nunito-latin.woff2">
     <script defer src="//dbq5t2jl0vcpj.cloudfront.net/hx-tracker/tracker-v6-latest.min.js"></script>
     <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        :root {
-            --navy:#1e3a5f; --blue:#2d6a9f; --blue-l:#ebf4ff; --blue-m:#bee3f8; --blue-d:#235280;
-            --green:#38a169; --green-d:#2f855a; --green-l:#f0fff4;
-            --bg:#f0f4f8; --border:#e2e8f0; --text:#1a202c; --muted:#718096;
+        /* ── Nunito — self-hosted ── */
+        @font-face {
+            font-family: 'Nunito';
+            font-style: normal;
+            font-weight: 300 800;
+            font-display: swap;
+            src: url('nunito-latin.woff2') format('woff2');
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+                           U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+                           U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
         }
-        html { height:100%; }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --purple:   #312782;
+            --purple-d: #231c60;
+            --purple-l: #f0edf8;
+            --purple-m: #c9bfe8;
+            --green:    #38a169;
+            --green-d:  #2f855a;
+            --green-l:  #f0fff4;
+            --bg:       #f5f5f7;
+            --border:   #e2e8f0;
+            --text:     #1a1a2e;
+            --muted:    #718096;
+        }
+
+        html { height: 100%; }
         body {
-            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
-            background:var(--bg); color:var(--text);
-            height:100%; display:flex; flex-direction:column; overflow:hidden;
-            -webkit-font-smoothing:antialiased;
+            font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
         }
 
         /* ── Header ── */
-        header { background:var(--navy); color:white; padding:1rem 2rem; flex-shrink:0; }
-        header h1 { font-size:1.25rem; font-weight:700; }
+        header {
+            background: var(--purple);
+            padding: .75rem 1.25rem;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+        }
+        .header-logo { height: 26px; width: auto; display: block; }
 
         /* ── Container ── */
         .container {
-            flex:1; display:flex; flex-direction:column; overflow:hidden;
-            max-width:680px; width:100%; margin:0 auto; min-height:0;
+            flex: 1; display: flex; flex-direction: column; overflow: hidden;
+            max-width: 540px; width: 100%; margin: 0 auto; min-height: 0;
         }
-        @media(min-width:720px){ .container { padding:.75rem 1rem; } }
+        @media (min-width: 580px) { .container { padding: .875rem; } }
 
         /* ── Card ── */
-        .card { flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0; background:white; border-radius:0; }
-        @media(min-width:720px){ .card { border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,.07); } }
-
-        /* ── Progress dots ── */
-        .progress-wrap { background:white; border-bottom:1px solid var(--border); padding:.875rem 1.5rem; flex-shrink:0; }
-        .progress-track { display:flex; justify-content:space-between; align-items:center; position:relative; }
-        .progress-track::before { content:''; position:absolute; top:50%; left:0; right:0; height:2px; background:var(--border); z-index:0; }
-        .dot {
-            width:26px; height:26px; border-radius:50%; background:var(--border); z-index:1;
-            display:flex; align-items:center; justify-content:center;
-            font-size:.7rem; font-weight:700; color:var(--muted); transition:all .2s; cursor:default;
+        .card {
+            flex: 1; display: flex; flex-direction: column;
+            overflow: hidden; min-height: 0; background: white; border-radius: 0;
         }
-        .dot.active { background:var(--blue); color:white; }
-        .dot.done   { background:var(--green); color:white; cursor:pointer; }
-        .progress-label { text-align:center; font-size:.75rem; color:var(--muted); margin-top:.5rem; }
+        @media (min-width: 580px) {
+            .card { border-radius: 14px; box-shadow: 0 2px 20px rgba(49,39,130,.1); }
+        }
 
         /* ── Steps ── */
-        .step { display:none; min-height:0; }
-        .step.active { display:flex; flex-direction:column; flex:1; min-height:0; animation:fade-up .2s ease; }
-        @keyframes fade-up { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+        .step { display: none; min-height: 0; }
+        .step.active {
+            display: flex; flex-direction: column; flex: 1;
+            min-height: 0; animation: fade-up .2s ease;
+        }
+        @keyframes fade-up {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
 
-        .step-bar { flex-shrink:0; display:flex; align-items:center; gap:.75rem; padding:1rem 1.25rem 0; }
-        .back-btn { background:none; border:none; color:var(--muted); font-size:.875rem; cursor:pointer; padding:.25rem 0; -webkit-tap-highlight-color:transparent; }
-        .back-btn:hover { color:var(--text); }
-        .step-title { font-size:1.1rem; font-weight:700; color:var(--navy); }
-        .step-body { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; min-height:0; padding:1rem 1.25rem 1.5rem; }
-        .step-body::-webkit-scrollbar { width:4px; }
-        .step-body::-webkit-scrollbar-thumb { background:#cbd5e0; border-radius:2px; }
+        /* ── Hero image (step 1) ── */
+        .hero-img { flex-shrink: 0; width: 100%; line-height: 0; }
+        .hero-img img {
+            display: block; width: 100%; height: auto;
+            max-height: 200px; object-fit: cover; object-position: center top;
+        }
+
+        /* ── Back row ── */
+        .step-back { flex-shrink: 0; padding: .75rem 1.25rem 0; }
+        .back-btn {
+            background: none; border: none; color: var(--muted);
+            font-family: inherit; font-size: .875rem; cursor: pointer;
+            padding: .25rem 0; -webkit-tap-highlight-color: transparent;
+        }
+        .back-btn:hover { color: var(--text); }
+
+        /* ── Trip summary strip ── */
+        .trip-summary {
+            display: none; flex-shrink: 0;
+            background: var(--purple-l); border-top: 1px solid var(--purple-m);
+            padding: .5rem 1.25rem; font-size: .78rem; font-weight: 600;
+            color: var(--purple-d); white-space: nowrap;
+            overflow-x: auto; -webkit-overflow-scrolling: touch;
+        }
+        .trip-summary.visible { display: block; }
+        .ts-sep { margin: 0 .45rem; opacity: .45; font-weight: 400; }
+
+        /* ── Step body ── */
+        .step-body {
+            flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+            min-height: 0; padding: 1rem 1.25rem 1.5rem;
+        }
+        .step-body::-webkit-scrollbar { width: 4px; }
+        .step-body::-webkit-scrollbar-thumb { background: #d0d8e4; border-radius: 2px; }
 
         /* ── Labels ── */
-        .sec-lbl { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:.625rem; }
-        .step-q   { font-size:.875rem; color:var(--muted); margin-bottom:.875rem; }
+        .sec-lbl {
+            font-size: .68rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .08em; color: var(--muted); margin-bottom: .625rem;
+        }
+        .step-q { font-size: .875rem; color: var(--muted); margin-bottom: .875rem; }
 
         /* ── Location button ── */
         .location-btn {
-            width:100%; background:var(--navy); color:white; border:none; border-radius:10px;
-            padding:1rem 1.25rem; font-size:.95rem; font-weight:600; cursor:pointer;
-            display:flex; align-items:center; justify-content:center; gap:.5rem;
-            margin-bottom:1.375rem; transition:background .15s; min-height:52px;
-            -webkit-tap-highlight-color:transparent;
+            width: 100%; background: var(--purple); color: white; border: none;
+            border-radius: 10px; padding: 1rem 1.25rem; font-size: .95rem; font-weight: 700;
+            font-family: inherit; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: .5rem;
+            margin-bottom: 1.375rem; transition: background .15s; min-height: 52px;
+            -webkit-tap-highlight-color: transparent;
         }
-        .location-btn:hover:not(:disabled) { background:var(--blue-d); }
-        .location-btn.done { background:var(--green); }
-        .location-btn:disabled { opacity:.65; cursor:not-allowed; }
+        .location-btn:hover:not(:disabled) { background: var(--purple-d); }
+        .location-btn.done { background: var(--green); }
+        .location-btn:disabled { opacity: .65; cursor: not-allowed; }
 
         /* ── Airport grid ── */
-        .airport-grid { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; margin-bottom:1.25rem; }
-        @media(min-width:420px){ .airport-grid { grid-template-columns:repeat(3,1fr); } }
-        .a-tile {
-            border:2px solid var(--border); border-radius:10px; padding:.875rem .5rem;
-            cursor:pointer; text-align:center;
-            transition:border-color .12s,background .12s,transform .15s;
-            user-select:none; -webkit-tap-highlight-color:transparent;
+        .airport-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr);
+            gap: .5rem; margin-bottom: 1.25rem;
         }
-        .a-tile:hover { border-color:var(--blue); background:var(--blue-l); }
-        .a-tile.selected   { border-color:var(--blue); background:var(--blue-l); transform:scale(1.04); }
-        .a-tile.confirming { border-color:var(--green); background:var(--green-l); animation:pop .3s ease; }
-        .a-code { font-size:1.375rem; font-weight:800; color:var(--navy); letter-spacing:.02em; }
-        .a-name { font-size:.7rem; color:var(--muted); margin-top:.2rem; line-height:1.3; }
+        @media (min-width: 360px) { .airport-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 480px) { .airport-grid { grid-template-columns: repeat(4, 1fr); } }
+
+        .a-tile {
+            border: 2px solid var(--border); border-radius: 10px; padding: .875rem .5rem;
+            cursor: pointer; text-align: center;
+            transition: border-color .12s, background .12s, transform .15s;
+            user-select: none; -webkit-tap-highlight-color: transparent;
+        }
+        .a-tile:hover       { border-color: var(--purple); background: var(--purple-l); }
+        .a-tile.selected    { border-color: var(--purple); background: var(--purple-l); transform: scale(1.04); }
+        .a-tile.confirming  { border-color: var(--green); background: var(--green-l); animation: pop .3s ease; }
+        .a-code { font-size: 1.375rem; font-weight: 800; color: var(--purple); letter-spacing: .02em; }
+        .a-name { font-size: .68rem; color: var(--muted); margin-top: .2rem; line-height: 1.3; }
+        @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
 
         /* ── Airport list ── */
-        .airport-list { border:1.5px solid var(--border); border-radius:10px; overflow:hidden; }
+        .airport-list { border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; }
         .a-row {
-            display:flex; align-items:center; padding:.875rem 1rem; gap:.875rem;
-            border-bottom:1px solid var(--border); cursor:pointer; min-height:56px;
-            transition:background .1s; user-select:none; -webkit-tap-highlight-color:transparent;
+            display: flex; align-items: center; padding: .875rem 1rem; gap: .875rem;
+            border-bottom: 1px solid var(--border); cursor: pointer; min-height: 52px;
+            transition: background .1s; user-select: none; -webkit-tap-highlight-color: transparent;
         }
-        .a-row:last-child { border-bottom:none; }
-        .a-row:hover { background:var(--blue-l); }
-        .a-row.selected   { background:var(--blue-l); }
-        .a-row.confirming { background:var(--green-l); }
-        .a-row-code { font-size:.95rem; font-weight:800; color:var(--navy); width:2.75rem; flex-shrink:0; }
-        .a-row-name { font-size:.875rem; color:var(--text); flex:1; }
+        .a-row:last-child  { border-bottom: none; }
+        .a-row:hover       { background: var(--purple-l); }
+        .a-row.selected    { background: var(--purple-l); }
+        .a-row.confirming  { background: var(--green-l); }
+        .a-row-code { font-size: .95rem; font-weight: 800; color: var(--purple); width: 2.75rem; flex-shrink: 0; }
+        .a-row-name { font-size: .875rem; color: var(--text); flex: 1; }
 
         /* ── Calendar ── */
-        .cal-month { margin-bottom:2rem; }
-        .cal-month-name { font-size:.95rem; font-weight:700; color:var(--navy); text-align:center; padding:.5rem 0 .75rem; }
-        .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
-        .cal-dow { font-size:.62rem; font-weight:700; text-align:center; color:var(--muted); padding:.3rem 0; text-transform:uppercase; letter-spacing:.04em; }
-        .cal-day { min-height:40px; display:flex; align-items:center; justify-content:center; font-size:.9rem; border-radius:8px; transition:background .1s; -webkit-tap-highlight-color:transparent; }
-        .cal-day.past { color:#c0c8d4; cursor:default; }
-        .cal-day.avail { cursor:pointer; }
-        .cal-day.avail:hover { background:var(--blue-l); color:var(--blue); }
-        .cal-day.is-today { font-weight:700; color:var(--blue); border:1.5px solid var(--blue-m); }
-        .cal-day.is-selected { background:var(--blue); color:white !important; font-weight:700; border:none; }
-        .cal-day.is-confirming { background:var(--green) !important; color:white !important; animation:pop .3s ease; }
-        @keyframes pop { 0%{transform:scale(1)} 50%{transform:scale(1.08)} 100%{transform:scale(1)} }
+        .cal-month { margin-bottom: 2rem; }
+        .cal-month-name {
+            font-size: .95rem; font-weight: 700; color: var(--purple);
+            text-align: center; padding: .5rem 0 .75rem;
+        }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+        .cal-dow {
+            font-size: .62rem; font-weight: 700; text-align: center; color: var(--muted);
+            padding: .3rem 0; text-transform: uppercase; letter-spacing: .04em;
+        }
+        .cal-day {
+            min-height: 40px; display: flex; align-items: center; justify-content: center;
+            font-size: .9rem; border-radius: 8px; transition: background .1s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .cal-day.past      { color: #c8cfe0; cursor: default; }
+        .cal-day.avail     { cursor: pointer; }
+        .cal-day.avail:hover { background: var(--purple-l); color: var(--purple); }
+        .cal-day.is-today  { font-weight: 700; color: var(--purple); border: 1.5px solid var(--purple-m); }
+        .cal-day.is-selected { background: var(--purple); color: white !important; font-weight: 700; border: none; }
+        .cal-day.is-confirming { background: var(--green) !important; color: white !important; animation: pop .3s ease; }
 
         /* ── Context bar ── */
-        .ctx-bar { background:#f7fafc; border:1.5px solid var(--border); border-radius:8px; padding:.625rem .875rem; font-size:.815rem; color:var(--muted); margin-bottom:.875rem; }
-        .ctx-bar strong { color:var(--text); }
+        .ctx-bar {
+            background: #f8f7fc; border: 1.5px solid var(--border); border-radius: 8px;
+            padding: .625rem .875rem; font-size: .815rem; color: var(--muted); margin-bottom: .875rem;
+        }
+        .ctx-bar strong { color: var(--text); }
 
         /* ── Flight picker ── */
-        .flight-section { margin-bottom:1.25rem; }
-        .flight-list { border:1.5px solid var(--border); border-radius:10px; overflow:hidden; margin-bottom:.625rem; }
+        .flight-section { margin-bottom: 1.25rem; }
+        .flight-list { border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: .625rem; }
         .flight-row {
-            display:flex; align-items:center; padding:.75rem 1rem; gap:.875rem;
-            border-bottom:1px solid var(--border); cursor:pointer; min-height:58px;
-            transition:background .1s; user-select:none; -webkit-tap-highlight-color:transparent;
+            display: flex; align-items: center; padding: .75rem 1rem; gap: .875rem;
+            border-bottom: 1px solid var(--border); cursor: pointer; min-height: 58px;
+            transition: background .1s; user-select: none; -webkit-tap-highlight-color: transparent;
         }
-        .flight-row:last-child { border-bottom:none; }
-        .flight-row:hover { background:var(--blue-l); }
-        .flight-row.selected   { background:var(--blue-l); }
-        .flight-row.confirming { background:var(--green-l); }
-        .fr-code  { font-size:.75rem; font-weight:700; color:var(--muted); width:3.5rem; flex-shrink:0; font-family:ui-monospace,monospace; }
-        .fr-time  { font-size:1.25rem; font-weight:800; color:var(--navy); width:3.25rem; flex-shrink:0; }
-        .fr-arrow { color:var(--muted); font-size:.8rem; flex-shrink:0; }
-        .fr-dest  { flex:1; font-size:.875rem; color:var(--text); }
-        .fr-note  { font-size:.7rem; color:var(--muted); margin-top:.15rem; }
-        .flight-row.selected .fr-time { color:var(--blue); }
-        .skip-flight-link { display:block; text-align:center; font-size:.78rem; color:var(--muted); cursor:pointer; padding:.375rem; text-decoration:underline; text-decoration-style:dotted; }
-        .skip-flight-link:hover { color:var(--text); }
-        .flight-hint { font-size:.75rem; color:var(--green); font-weight:600; margin-bottom:.875rem; padding:.5rem .75rem; background:var(--green-l); border-radius:7px; border:1px solid #c6f6d5; display:none; }
-        .flight-hint.visible { display:block; }
+        .flight-row:last-child  { border-bottom: none; }
+        .flight-row:hover       { background: var(--purple-l); }
+        .flight-row.selected    { background: var(--purple-l); }
+        .flight-row.confirming  { background: var(--green-l); }
+        .fr-code  { font-size: .75rem; font-weight: 700; color: var(--muted); width: 3.5rem; flex-shrink: 0; font-family: ui-monospace, monospace; }
+        .fr-time  { font-size: 1.25rem; font-weight: 800; color: var(--purple); width: 3.25rem; flex-shrink: 0; }
+        .fr-arrow { color: var(--muted); font-size: .8rem; flex-shrink: 0; }
+        .fr-dest  { flex: 1; font-size: .875rem; color: var(--text); }
+        .fr-note  { font-size: .7rem; color: var(--muted); margin-top: .15rem; }
+        .skip-flight-link {
+            display: block; text-align: center; font-size: .78rem; color: var(--muted);
+            cursor: pointer; padding: .375rem; text-decoration: underline; text-decoration-style: dotted;
+        }
+        .skip-flight-link:hover { color: var(--text); }
+        .flight-hint {
+            font-size: .75rem; color: var(--green); font-weight: 600;
+            margin-bottom: .875rem; padding: .5rem .75rem; background: var(--green-l);
+            border-radius: 7px; border: 1px solid #c6f6d5; display: none;
+        }
+        .flight-hint.visible { display: block; }
 
-        /* ── Time grid ── */
-        .time-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:.4rem; }
-        @media(max-width:340px){ .time-grid { grid-template-columns:repeat(3,1fr); } }
+        /* ── Time picker ── */
+        .time-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .4rem; }
+        @media (max-width: 340px) { .time-grid { grid-template-columns: repeat(3, 1fr); } }
         .time-pill {
-            border:1.5px solid var(--border); border-radius:8px; font-size:.85rem;
-            cursor:pointer; transition:all .12s; min-height:48px;
-            display:flex; align-items:center; justify-content:center;
-            user-select:none; -webkit-tap-highlight-color:transparent;
+            border: 1.5px solid var(--border); border-radius: 8px; font-size: .85rem;
+            font-family: inherit; cursor: pointer; transition: all .12s; min-height: 48px;
+            display: flex; align-items: center; justify-content: center;
+            user-select: none; -webkit-tap-highlight-color: transparent;
         }
-        .time-pill:hover  { border-color:var(--blue); background:var(--blue-l); }
-        .time-pill.tp-sel     { border-color:var(--blue); background:var(--blue); color:white; font-weight:600; }
-        .time-pill.tp-suggest { border-color:var(--blue); background:var(--blue-l); font-weight:600; }
-        .time-pill.tp-confirm { border-color:var(--green); background:var(--green); color:white; animation:pop .3s ease; }
+        .time-pill:hover      { border-color: var(--purple); background: var(--purple-l); }
+        .time-pill.tp-sel     { border-color: var(--purple); background: var(--purple); color: white; font-weight: 700; }
+        .time-pill.tp-suggest { border-color: var(--purple); background: var(--purple-l); font-weight: 600; }
+        .time-pill.tp-confirm { border-color: var(--green); background: var(--green); color: white; animation: pop .3s ease; }
 
         /* ── Review ── */
-        .duration-card { background:var(--blue-l); border:1.5px solid var(--blue-m); border-radius:10px; padding:1rem; text-align:center; margin-bottom:1.25rem; }
-        .dc-nights { font-size:1.625rem; font-weight:800; color:var(--navy); }
-        .dc-dates  { font-size:.8rem; color:var(--muted); margin-top:.15rem; }
-        .review-row { display:flex; align-items:center; padding:.875rem 0; border-bottom:1px solid #f0f4f8; }
-        .review-row:last-child { border-bottom:none; }
-        .rr-icon { font-size:1rem; margin-right:.75rem; flex-shrink:0; }
-        .rr-body { flex:1; min-width:0; }
-        .rr-lbl  { font-size:.72rem; color:var(--muted); }
-        .rr-val  { font-size:.95rem; font-weight:600; color:var(--text); margin-top:.1rem; }
-        .rr-edit { background:none; border:none; color:var(--muted); cursor:pointer; padding:.375rem; border-radius:5px; font-size:.95rem; transition:background .12s; flex-shrink:0; }
-        .rr-edit:hover { background:#f0f4f8; color:var(--text); }
+        .duration-card {
+            background: var(--purple-l); border: 1.5px solid var(--purple-m);
+            border-radius: 10px; padding: 1rem; text-align: center; margin-bottom: 1.25rem;
+        }
+        .dc-nights { font-size: 1.625rem; font-weight: 800; color: var(--purple); }
+        .dc-dates  { font-size: .8rem; color: var(--muted); margin-top: .15rem; }
+        .review-row { display: flex; align-items: center; padding: .875rem 0; border-bottom: 1px solid #f0f4f8; }
+        .review-row:last-child { border-bottom: none; }
+        .rr-icon { font-size: 1rem; margin-right: .75rem; flex-shrink: 0; }
+        .rr-body { flex: 1; min-width: 0; }
+        .rr-lbl  { font-size: .72rem; color: var(--muted); }
+        .rr-val  { font-size: .95rem; font-weight: 600; color: var(--text); margin-top: .1rem; }
+        .rr-edit { background: none; border: none; color: var(--muted); cursor: pointer; padding: .375rem; border-radius: 5px; font-size: .95rem; transition: background .12s; flex-shrink: 0; }
+        .rr-edit:hover { background: #f0f4f8; color: var(--text); }
 
         /* ── CTA ── */
-        .srch-loading { display:none; text-align:center; padding:1.25rem 0 .75rem; color:var(--muted); font-size:.85rem; }
-        .srch-loading.on { display:block; }
-        .spinner { width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--blue); border-radius:50%; animation:spin .75s linear infinite; margin:0 auto .5rem; }
-        @keyframes spin { to{transform:rotate(360deg)} }
+        .srch-loading { display: none; text-align: center; padding: 1.25rem 0 .75rem; color: var(--muted); font-size: .85rem; }
+        .srch-loading.on { display: block; }
+        .spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--purple); border-radius: 50%; animation: spin .75s linear infinite; margin: 0 auto .5rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
         .btn-success {
-            display:flex; align-items:center; justify-content:center; width:100%;
-            padding:.9rem 2rem; background:var(--green); color:white; border:none;
-            border-radius:9px; font-size:1.05rem; font-weight:600; cursor:pointer; transition:background .12s;
-            -webkit-tap-highlight-color:transparent;
+            display: flex; align-items: center; justify-content: center; width: 100%;
+            padding: .9rem 2rem; background: var(--green); color: white; border: none;
+            border-radius: 9px; font-size: 1.05rem; font-weight: 700; font-family: inherit;
+            cursor: pointer; transition: background .12s; -webkit-tap-highlight-color: transparent;
         }
-        .btn-success:hover { background:var(--green-d); }
-
-        footer { display:none; }
+        .btn-success:hover { background: var(--green-d); }
     </style>
 </head>
 <body>
 
-<header><h1>Holiday Extras</h1></header>
+<header>
+    <img src="logo.png" alt="Holiday Extras" class="header-logo">
+</header>
 
 <main class="container">
 <div class="card">
 
-
     <!-- Step 1: Airport -->
     <section class="step active" id="step-1">
+        <div class="hero-img">
+            <img src="get-holiday-ready.png" alt="" loading="eager" fetchpriority="high">
+        </div>
         <div class="step-body">
-            <p class="sec-lbl" style="margin-bottom:1rem">Where are you flying from?</p>
+            <p class="sec-lbl" style="margin-bottom:.875rem">Where are you flying from?</p>
             <button class="location-btn" id="locationBtn" onclick="requestLocation()">
                 <span aria-hidden="true">📍</span> Use precise GPS location
             </button>
@@ -216,19 +310,19 @@
 
     <!-- Step 2: Drop-off date -->
     <section class="step" id="step-2">
-        <div class="step-bar">
+        <div class="step-back">
             <button class="back-btn" onclick="goToStep(1)">← Back</button>
-            <span class="step-title">Drop-off date</span>
         </div>
+        <div class="trip-summary" id="ts-2"></div>
         <div class="step-body" id="dropoffCalBody"></div>
     </section>
 
     <!-- Step 3: Drop-off time + outbound flight -->
     <section class="step" id="step-3">
-        <div class="step-bar">
+        <div class="step-back">
             <button class="back-btn" onclick="goToStep(2)">← Back</button>
-            <span class="step-title">Drop-off time</span>
         </div>
+        <div class="trip-summary" id="ts-3"></div>
         <div class="step-body">
             <div class="flight-section">
                 <p class="sec-lbl">Your outbound flight <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.7rem;color:var(--muted)">(optional)</span></p>
@@ -245,10 +339,10 @@
 
     <!-- Step 4: Return date -->
     <section class="step" id="step-4">
-        <div class="step-bar">
+        <div class="step-back">
             <button class="back-btn" onclick="goToStep(3)">← Back</button>
-            <span class="step-title">Return date</span>
         </div>
+        <div class="trip-summary" id="ts-4"></div>
         <div class="step-body">
             <div class="ctx-bar" id="returnCtx"></div>
             <div id="returnCalBody"></div>
@@ -257,10 +351,10 @@
 
     <!-- Step 5: Return time + return flight -->
     <section class="step" id="step-5">
-        <div class="step-bar">
+        <div class="step-back">
             <button class="back-btn" onclick="goToStep(4)">← Back</button>
-            <span class="step-title">Return time</span>
         </div>
+        <div class="trip-summary" id="ts-5"></div>
         <div class="step-body">
             <div class="flight-section">
                 <p class="sec-lbl">Your return flight <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.7rem;color:var(--muted)">(optional)</span></p>
@@ -277,9 +371,8 @@
 
     <!-- Step 6: Review & search -->
     <section class="step" id="step-6">
-        <div class="step-bar">
+        <div class="step-back">
             <button class="back-btn" onclick="goToStep(5)">← Back</button>
-            <span class="step-title">Your search</span>
         </div>
         <div class="step-body">
             <div id="durationCard"></div>
@@ -353,7 +446,7 @@ function genFlights(airportCode, date, seedOffset) {
     for (let i = 0; i < 5; i++) hours.push(base[(seed + i*3) % base.length]);
     hours.sort((a,b) => a-b);
     return hours.map((h,i) => ({
-        code:    FLIGHT_TEMPLATES[airportCode] ? tmpl.al[(seed+i*5)%tmpl.al.length] + (((seed*3+i*17+100)%899)+100) : 'EZY' + (((seed*3+i*17+100)%899)+100),
+        code:    tmpl.al[(seed+i*5)%tmpl.al.length] + (((seed*3+i*17+100)%899)+100),
         airline: tmpl.al[(seed+i*5)%tmpl.al.length],
         dest:    tmpl.dests[(seed+i*11)%tmpl.dests.length],
         hour:    h,
@@ -373,6 +466,7 @@ function today()      { const d=new Date(); d.setHours(0,0,0,0); return d; }
 function fmtISO(d)    { return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
 function parseISO(s)  { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
 function fmtDisplay(d){ return DAYS[d.getDay()]+' '+d.getDate()+' '+SMON[d.getMonth()]+' '+d.getFullYear(); }
+function fmtShort(d)  { return DAYS[d.getDay()]+' '+d.getDate()+' '+SMON[d.getMonth()]; }
 function toDDMMYY(d)  { return pad2(d.getDate())+'/'+pad2(d.getMonth()+1)+'/'+String(d.getFullYear()).slice(2); }
 function toHuman(d)   { const n=d.getDate(),s=(n>=11&&n<=13)?'th':(['th','st','nd','rd'][n%10]||'th'); return DAYS[d.getDay()]+' '+n+s+' '+SMON[d.getMonth()]+' '+String(d.getFullYear()).slice(2); }
 function toHHMM(h)    { return pad2(h)+'00'; }
@@ -380,26 +474,42 @@ function pad2(n)      { return String(n).padStart(2,'0'); }
 function esc(s)       { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ─── Tracking ──────────────────────────────────────────────────────────────────
-window.dataLayer = window.dataLayer || [];
 function track(name, value) {
     const v = value !== undefined ? String(value) : '';
-    console.log('[track]', name, v);
-    window.dataLayer.push({ event: 'parking-wizard', name, value: v });
+    console.log('[track]', name, v || '(click)');
     if (typeof tracker !== 'undefined' && typeof tracker.inline === 'function') {
         tracker.inline('click', { name, value: v });
     }
 }
 function trackPage(stageNum, stageName) {
     const pageType = 'stage' + stageNum + '-' + stageName;
-    console.log('[track:page]', pageType);
+    console.log('[track:page]', 'parking-wizard', pageType);
     if (typeof tracker !== 'undefined' && typeof tracker.page === 'function') {
         tracker.page('parking-wizard', { page_type: pageType });
     }
 }
 
+// ─── Trip summary ──────────────────────────────────────────────────────────────
+function updateSummary() {
+    const s = state;
+    const sep = ' <span class="ts-sep" aria-hidden="true">·</span> ';
+    const parts = [];
+    if (s.airport)              parts.push(esc(s.airport.name) + ' parking');
+    if (s.dropoffDate)          parts.push(fmtShort(s.dropoffDate));
+    if (s.dropoffTime !== null) parts.push('drop-off ' + pad2(s.dropoffTime) + ':00');
+    if (s.returnDate)           parts.push('back ' + fmtShort(s.returnDate));
+    if (s.returnTime !== null)  parts.push('collect ' + pad2(s.returnTime) + ':00');
+    const html = parts.join(sep);
+    for (let i = 2; i <= 5; i++) {
+        const el = document.getElementById('ts-' + i);
+        if (!el) continue;
+        el.innerHTML = html;
+        el.classList.toggle('visible', parts.length > 0);
+    }
+}
+
 // ─── Navigation ────────────────────────────────────────────────────────────────
 const STEP_LABELS = ['','airport','dropoff-date','dropoff-time','return-date','return-time','search'];
-const STEP_TITLES = ['','Airport','Drop-off date','Drop-off time','Return date','Return time','Search'];
 
 function goToStep(n, fromHistory) {
     document.getElementById('step-' + currentStep).classList.remove('active');
@@ -408,17 +518,16 @@ function goToStep(n, fromHistory) {
 
     if (!fromHistory) history.pushState({ step: n }, '', '#step' + n);
 
-    // Scroll step-body to top
     const body = document.querySelector('#step-' + n + ' .step-body');
     if (body) body.scrollTop = 0;
 
-    // Setup
     if (n === 2) setupDropoffDate();
     if (n === 3) setupDropoffTime();
     if (n === 4) setupReturnDate();
     if (n === 5) setupReturnTime();
     if (n === 6) buildReview();
 
+    updateSummary();
     trackPage(n, STEP_LABELS[n]);
 }
 
@@ -432,6 +541,8 @@ function renderPopular(list) {
     document.getElementById('popularGrid').innerHTML = list.map(a =>
         `<div class="a-tile" id="tile-${a.code}" role="listitem" tabindex="0"
               aria-label="${a.name} (${a.code})"
+              data-track-name="parking-wizard-stage1-airport"
+              data-track-value="${a.code}"
               onclick="pickAirport('${a.code}','${esc(a.name)}')"
               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickAirport('${a.code}','${esc(a.name)}');}">
             <div class="a-code">${a.code}</div>
@@ -443,6 +554,8 @@ function renderAllList(list) {
     document.getElementById('allList').innerHTML = list.map(a =>
         `<div class="a-row" id="row-${a.code}" role="listitem" tabindex="0"
               aria-label="${a.name} (${a.code})"
+              data-track-name="parking-wizard-stage1-airport"
+              data-track-value="${a.code}"
               onclick="pickAirport('${a.code}','${esc(a.name)}')"
               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickAirport('${a.code}','${esc(a.name)}');}">
             <span class="a-row-code">${a.code}</span>
@@ -467,7 +580,7 @@ function pickAirport(code, name) {
 function applyLocation(lat, lon, label) {
     console.log('[location] source:', label, '| coords:', lat.toFixed(4), lon.toFixed(4));
     const sorted = ALL.slice().sort((a,b) => haversine(lat,lon,a.lat,a.lon) - haversine(lat,lon,b.lat,b.lon));
-    console.log('[location] nearest airports:', sorted.slice(0,4).map(a => a.code+'('+haversine(lat,lon,a.lat,a.lon).toFixed(0)+'km)'));
+    console.log('[location] nearest airports:', sorted.slice(0,4).map(a => a.code+'('+Math.round(haversine(lat,lon,a.lat,a.lon))+'km)'));
     renderPopular(sorted.slice(0,4));
     renderAllList(sorted.slice(4));
     track('parking-wizard-stage1-location-used', label);
@@ -475,7 +588,7 @@ function applyLocation(lat, lon, label) {
 
 function gpsLookupSilent() {
     if (!navigator.geolocation) return;
-    console.log('[location] GPS silent lookup...');
+    console.log('[location] GPS silent lookup (permission already granted)...');
     navigator.geolocation.getCurrentPosition(
         pos => {
             applyLocation(pos.coords.latitude, pos.coords.longitude, 'GPS (±' + Math.round(pos.coords.accuracy) + 'm)');
@@ -514,9 +627,9 @@ function requestLocation() {
             btn.classList.add('done'); btn.disabled = false;
         },
         err => {
-            console.warn('[location] GPS error code:', err.code, err.message);
+            console.warn('[location] GPS error:', err.code, err.message);
             let msg = 'Could not get GPS — try again';
-            if (err.code === 1) msg = 'GPS blocked — allow location in browser settings';
+            if (err.code === 1) msg = 'GPS blocked — check browser settings';
             btn.innerHTML = '<span aria-hidden="true">📍</span> ' + msg;
             btn.disabled = false;
         },
@@ -536,22 +649,17 @@ function renderCalendar(containerId, minDate, maxDays, selectedDate, onPickFn) {
     if (!container) return;
     const min     = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
     const maxDate = new Date(min.getFullYear(), min.getMonth(), min.getDate() + maxDays - 1);
-
     let html = '';
     let cur  = new Date(min.getFullYear(), min.getMonth(), 1);
-
     while (cur <= maxDate) {
         const yr = cur.getFullYear(), mo = cur.getMonth();
         const daysInMonth = new Date(yr, mo + 1, 0).getDate();
-        const firstDow    = new Date(yr, mo, 1).getDay();
-        const offset      = (firstDow + 6) % 7; // Mon = 0
-
+        const offset      = (new Date(yr, mo, 1).getDay() + 6) % 7; // Mon=0
         html += `<div class="cal-month"><div class="cal-month-name">${MONTHS[mo]} ${yr}</div><div class="cal-grid">`;
         for (const d of ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'])
             html += `<div class="cal-dow">${d}</div>`;
         for (let i = 0; i < offset; i++)
             html += `<div class="cal-day"></div>`;
-
         for (let day = 1; day <= daysInMonth; day++) {
             const date   = new Date(yr, mo, day);
             const isPast = date < min;
@@ -559,7 +667,6 @@ function renderCalendar(containerId, minDate, maxDays, selectedDate, onPickFn) {
             const ds     = fmtISO(date);
             const isSel  = selectedDate && date.getTime() === selectedDate.getTime();
             const isTod  = date.getTime() === today().getTime();
-
             if (isPast || isBig) {
                 html += `<div class="cal-day past">${day}</div>`;
             } else {
@@ -574,7 +681,6 @@ function renderCalendar(containerId, minDate, maxDays, selectedDate, onPickFn) {
         html += `</div></div>`;
         cur = new Date(yr, mo + 1, 1);
     }
-
     container.innerHTML = html;
     if (selectedDate) {
         const sel = container.querySelector('.is-selected');
@@ -592,9 +698,7 @@ function pickDropoffDate(dateStr) {
     state.dropoffDate   = d;
     state.dropoffFlight = null;
     if (state.returnDate && state.returnDate <= d) { state.returnDate = null; state.returnTime = null; state.returnFlight = null; }
-
     track('parking-wizard-stage2-dropoff-date', dateStr);
-
     renderCalendar('dropoffCalBody', today(), 365, d, 'pickDropoffDate');
     const cell = document.querySelector('#dropoffCalBody [data-date="' + dateStr + '"]');
     if (cell) {
@@ -641,9 +745,7 @@ function pickReturnDate(dateStr) {
     const d = parseISO(dateStr);
     state.returnDate   = d;
     state.returnFlight = null;
-
     track('parking-wizard-stage4-return-date', dateStr);
-
     const minReturn = state.dropoffDate
         ? new Date(state.dropoffDate.getFullYear(), state.dropoffDate.getMonth(), state.dropoffDate.getDate() + 1)
         : today();
@@ -705,11 +807,9 @@ function pickFlight(type, idx) {
     const container= document.getElementById(cid);
     const f        = (container._flights || [])[idx];
     if (!f) return;
-
     container.querySelectorAll('.flight-row').forEach(el => el.classList.remove('selected','confirming'));
     const el = container.querySelectorAll('.flight-row')[idx];
     if (el) { el.classList.add('selected'); setTimeout(() => el.classList.add('confirming'), 80); }
-
     if (type === 'outbound') {
         state.dropoffFlight = f;
         renderTimePicker('dropoffTimeGrid', state.dropoffTime, Math.max(0, f.hour - 3), onDropoffTime);
@@ -781,7 +881,7 @@ function buildReview() {
         rrRow('🚗','Drop-off', fmtDisplay(dd) + ' at ' + pad2(dt) + ':00', 2, flightNote(df,'Flight')) +
         rrRow('🏠','Return',   fmtDisplay(rd) + ' at ' + pad2(rt) + ':00', 4, flightNote(rf,'Flight'));
 
-    // Prefetch results page
+    // Prefetch HX results page
     const url = buildSearchUrl();
     let pf = document.getElementById('hx-pf');
     if (!pf) { pf = document.createElement('link'); pf.id='hx-pf'; pf.rel='prefetch'; document.head.appendChild(pf); }
@@ -791,7 +891,7 @@ function buildReview() {
     loading.classList.add('on'); btn.style.display = 'none';
     setTimeout(() => { loading.classList.remove('on'); btn.style.display = ''; }, 1100);
 
-    trackPage(6, 'search');
+    track('parking-wizard-stage6-search-summary', a.code);
 }
 
 function rrRow(icon, label, value, step, extra) {
@@ -826,11 +926,21 @@ function buildSearchUrl() {
 }
 
 // ─── Init ──────────────────────────────────────────────────────────────────────
-(function init() {
+window.addEventListener('DOMContentLoaded', () => {
+    // Initialise HX Tracker (defer ensures it's ready by DOMContentLoaded)
+    if (window.tracker) {
+        tracker.initialise({
+            env: window.location.hostname === 'localhost' ? 'development' : 'production',
+            service: 'parking-wizard',
+            organisation: 'Holiday Extras Limited',
+            lb: false,
+        });
+    }
+
     renderPopular(POPULAR);
     renderAllList(OTHERS);
 
-    // Auto-location: GPS if already permitted, otherwise IP
+    // Auto-location on load
     if (navigator.permissions) {
         navigator.permissions.query({ name:'geolocation' }).then(r => {
             console.log('[location] permission state:', r.state);
@@ -840,21 +950,10 @@ function buildSearchUrl() {
         ipLocationLookup();
     }
 
-    // Hash nav on load
+    // Hash navigation on load
     history.replaceState({ step: 1 }, '', '#step1');
-
-    // Initialize HX tracker
-    if (typeof tracker !== 'undefined') {
-        tracker.initialise({
-            env: window.location.hostname.includes('localhost') ? 'development' : 'production',
-            service: 'parking-wizard',
-            organisation: 'Holiday Extras Limited',
-            lb: false,
-        });
-    }
-
     trackPage(1, 'airport');
-})();
+});
 </script>
 </body>
 </html>
