@@ -45,12 +45,11 @@
             font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             font-size: 1rem;
             font-weight: 300;
-            background: var(--bg);
+            background: white;
             color: var(--text);
             min-height: 100vh;
             -webkit-font-smoothing: antialiased;
         }
-        @media (max-width: 480px) { body { background: white; } }
 
         /* ── Header ── */
         header { line-height: 0; }
@@ -271,7 +270,7 @@
 
     <!-- Step 1: Airport -->
     <section class="step active" id="step-1">
-        <h2 class="step-title">Where are you flying from?</h2>
+        <h2 class="step-title">Flying from</h2>
         <button class="location-btn" id="locationBtn" onclick="requestLocation()">
             <span aria-hidden="true">📍</span> Use precise GPS location
         </button>
@@ -283,13 +282,13 @@
 
     <!-- Step 2: Drop-off date -->
     <section class="step" id="step-2">
-        <h2 class="step-title">When are you dropping off?</h2>
+        <h2 class="step-title">Parking from</h2>
         <div id="dropoffCalBody"></div>
     </section>
 
     <!-- Step 3: Drop-off time + outbound flight -->
     <section class="step" id="step-3">
-        <h2 class="step-title">What time are you dropping off?</h2>
+        <h2 class="step-title">Parking from time</h2>
         <div class="flight-section">
             <p class="sec-lbl">Your outbound flight <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.7rem;color:var(--muted)">(optional)</span></p>
             <div class="flight-list" id="outboundFlightList" role="listbox"></div>
@@ -304,14 +303,14 @@
 
     <!-- Step 4: Return date -->
     <section class="step" id="step-4">
-        <h2 class="step-title">When are you returning?</h2>
+        <h2 class="step-title">Returning to collect car</h2>
         <div class="ctx-bar" id="returnCtx"></div>
         <div id="returnCalBody"></div>
     </section>
 
     <!-- Step 5: Return time + return flight -->
     <section class="step" id="step-5">
-        <h2 class="step-title">What time are you collecting your car?</h2>
+        <h2 class="step-title">Returning to collect car time</h2>
         <div class="flight-section">
             <p class="sec-lbl">Your return flight <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.7rem;color:var(--muted)">(optional)</span></p>
             <div class="flight-list" id="returnFlightList" role="listbox"></div>
@@ -326,7 +325,7 @@
 
     <!-- Step 6: Review & search -->
     <section class="step" id="step-6">
-        <h2 class="step-title">Your parking search</h2>
+        <h2 class="step-title">Search Summary</h2>
         <div id="durationCard"></div>
         <div id="reviewRows"></div>
         <div style="margin-top:1.25rem">
