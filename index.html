@@ -27,8 +27,8 @@
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --purple:   #312782;
-            --purple-d: #231c60;
+            --purple:   #552e92;
+            --purple-d: #3d2070;
             --purple-l: #f0edf8;
             --purple-m: #c9bfe8;
             --green:    #38a169;
@@ -55,11 +55,13 @@
 
         /* ── Header ── */
         header {
+            background: var(--purple);
             flex-shrink: 0;
-            line-height: 0;
-            background: var(--purple); /* fallback while image loads */
+            padding: .625rem 1.25rem;
+            display: flex;
+            align-items: center;
         }
-        .header-logo { display: block; width: 100%; height: auto; }
+        .header-logo { display: block; height: 36px; width: auto; }
 
         /* ── Container ── */
         .container {
