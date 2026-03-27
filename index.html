@@ -472,39 +472,59 @@ function pickAirport(code, name) {
     }
 }
 
-function requestLocation() {
-    console.log('[geo] requestLocation() called');
+function applyLocation(lat, lon, source) {
     const btn = document.getElementById('locationBtn');
-    if (!navigator.geolocation) {
-        console.warn('[geo] navigator.geolocation not available');
-        btn.textContent = '📍 Not supported';
-        return;
-    }
-    console.log('[geo] geolocation available, calling getCurrentPosition...');
+    console.log('[geo] applying location from', source, lat, lon);
+    const sorted = ALL.slice().sort((a, b) => haversine(lat,lon,a.lat,a.lon) - haversine(lat,lon,b.lat,b.lon));
+    console.log('[geo] nearest airports:', sorted.slice(0,4).map(a=>a.code));
+    renderPopular(sorted.slice(0, 4));
+    renderAllList(sorted.slice(4));
+    btn.innerHTML = '<span aria-hidden="true">✓</span> Sorted by nearest airport';
+    btn.classList.add('done'); btn.disabled = false;
+    track('parking_location_used');
+}
+
+function requestLocation() {
+    const btn = document.getElementById('locationBtn');
     btn.disabled = true;
-    btn.innerHTML = '<span aria-hidden="true">📍</span> Allow location in browser prompt&hellip;';
-    navigator.geolocation.getCurrentPosition(
-        pos => {
-            const { latitude: lat, longitude: lon } = pos.coords;
-            console.log('[geo] success:', lat, lon);
-            const sorted = ALL.slice().sort((a, b) => haversine(lat,lon,a.lat,a.lon) - haversine(lat,lon,b.lat,b.lon));
-            console.log('[geo] nearest airports:', sorted.slice(0,4).map(a=>a.code));
-            renderPopular(sorted.slice(0, 4));
-            renderAllList(sorted.slice(4));
-            btn.innerHTML = '<span aria-hidden="true">✓</span> Sorted by nearest airport';
-            btn.classList.add('done'); btn.disabled = false;
-            track('parking_location_used');
-        },
-        err => {
-            console.warn('[geo] error — code:', err.code, 'message:', err.message);
-            let msg = 'Could not find location — try again';
-            if (err.code === 1) msg = 'Location access denied — check browser permissions';
-            else if (err.code === 3) msg = 'Location timed out — try again';
-            btn.innerHTML = `<span aria-hidden="true">📍</span> ${msg}`;
+    btn.innerHTML = '<span aria-hidden="true">📍</span> Finding your location&hellip;';
+
+    let resolved = false;
+
+    // IP geolocation — no permission needed, resolves in ~1s
+    const ipLookup = fetch('https://ipapi.co/json/')
+        .then(r => r.json())
+        .then(d => {
+            if (!resolved && d.latitude && d.longitude) {
+                resolved = true;
+                console.log('[geo] IP lookup success');
+                applyLocation(d.latitude, d.longitude, 'ip');
+            }
+        })
+        .catch(e => console.warn('[geo] IP lookup failed', e));
+
+    // Browser geolocation — more precise if it responds; wins the race if faster
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            pos => {
+                if (resolved) return; // IP already won
+                resolved = true;
+                console.log('[geo] browser geolocation success');
+                applyLocation(pos.coords.latitude, pos.coords.longitude, 'browser');
+            },
+            err => console.warn('[geo] browser geolocation error', err.code, err.message),
+            { maximumAge: 600000, enableHighAccuracy: false }
+        );
+    }
+
+    // If both fail after 8s, show error
+    setTimeout(() => {
+        if (!resolved) {
+            console.warn('[geo] all methods failed after 8s');
+            btn.innerHTML = '<span aria-hidden="true">📍</span> Could not find location — try again';
             btn.disabled = false;
-        },
-        { maximumAge: 600000, enableHighAccuracy: false }
-    );
+        }
+    }, 8000);
 }
 
 function haversine(lat1, lon1, lat2, lon2) {
