@@ -60,8 +60,10 @@
             flex-shrink: 0;
             display: flex;
             align-items: center;
+            gap: .875rem;
         }
-        .header-logo { height: 26px; width: auto; display: block; }
+        .header-logo { height: 28px; width: auto; display: block; }
+        .header-product { color: white; font-size: .95rem; font-weight: 400; opacity: .9; }
 
         /* ── Container ── */
         .container {
@@ -90,12 +92,10 @@
             to   { opacity: 1; transform: translateY(0); }
         }
 
-        /* ── Hero image (step 1) ── */
-        .hero-img { flex-shrink: 0; width: 100%; line-height: 0; }
-        .hero-img img {
-            display: block; width: 100%; height: auto;
-            max-height: 200px; object-fit: cover; object-position: center top;
-        }
+        /* ── Hero image — full viewport width between header and card ── */
+        .hero-wrap { flex-shrink: 0; width: 100%; line-height: 0; }
+        .hero-wrap img { display: block; width: 100%; height: auto; max-height: 260px; object-fit: cover; object-position: center top; }
+        .hero-wrap.hidden { display: none; }
 
         /* ── Back row — hidden ── */
         .step-back { display: none; }
@@ -281,16 +281,18 @@
 
 <header>
     <img src="logo.jpg" alt="Holiday Extras" class="header-logo">
+    <span class="header-product">Airport Parking</span>
 </header>
+
+<div class="hero-wrap" id="heroWrap">
+    <img src="get-holiday-ready.jpg" alt="" loading="eager" fetchpriority="high">
+</div>
 
 <main class="container">
 <div class="card">
 
     <!-- Step 1: Airport -->
     <section class="step active" id="step-1">
-        <div class="hero-img">
-            <img src="get-holiday-ready.jpg" alt="" loading="eager" fetchpriority="high">
-        </div>
         <div class="step-body">
             <p class="sec-lbl" style="margin-bottom:.875rem">Where are you flying from?</p>
             <button class="location-btn" id="locationBtn" onclick="requestLocation()">
@@ -515,6 +517,10 @@ function goToStep(n, fromHistory) {
 
     const body = document.querySelector('#step-' + n + ' .step-body');
     if (body) body.scrollTop = 0;
+
+    // Show hero only on step 1
+    const hero = document.getElementById('heroWrap');
+    if (hero) hero.classList.toggle('hidden', n !== 1);
 
     if (n === 2) setupDropoffDate();
     if (n === 3) setupDropoffTime();
