@@ -285,7 +285,8 @@
         .fr-leg-icon { font-size: .7rem; color: var(--muted); width: .9rem; flex-shrink: 0; text-align: center; }
         .fr-leg-time { font-weight: 800; color: var(--purple); font-size: 1.15rem; width: 3rem; flex-shrink: 0; }
         .fr-leg-time.arr { color: var(--text); font-size: .95rem; font-weight: 700; }
-        .fr-leg-ap { font-size: .68rem; font-weight: 700; color: var(--muted); letter-spacing: .03em; }
+        .fr-leg-ap   { font-size: .68rem; font-weight: 700; color: var(--muted); letter-spacing: .03em; }
+        .fr-leg-date { font-size: .68rem; color: var(--muted); }
         .fr-codeshare { font-size: .65rem; color: var(--muted); font-style: italic; }
         .fr-tail {
             height: 44px; width: auto; flex-shrink: 0; object-fit: contain;
@@ -580,6 +581,17 @@ function normaliseFlights(raw, dateStr, mode) {
                 operatedBy,
                 tailfin:       e.flight?.carrier?.tailfinImage || e.flight?.carrier?.tail_image || '',
                 departureDate: dateStr,
+                // arrivalDate: next day if arrival time wraps past midnight vs departure
+                arrivalDate: (() => {
+                    const dH = parseInt((dep.time || '00:00').split(':')[0], 10) || 0;
+                    const aH = parseInt(tH, 10) || 0;
+                    const aM = parseInt(tM, 10) || 0;
+                    const dM = parseInt((dep.time || '00:00').split(':')[1], 10) || 0;
+                    const nextDay = (aH * 60 + aM) < (dH * 60 + dM);
+                    if (!nextDay) return dateStr;
+                    const base = parseISO(dateStr);
+                    return fmtISO(new Date(base.getFullYear(), base.getMonth(), base.getDate() + 1));
+                })(),
                 _raw:          e,
             };
         })
@@ -1143,8 +1155,11 @@ function _renderFlightStructure(container, recents, day0, day1, type) {
     }
 
     if (day0.length) {
-        const label = day0[0].departureDate ? fmtDisplay(parseISO(day0[0].departureDate)) : '';
-        if (label) html += `<div class="flt-sec-hdr">${esc(label)}</div>`;
+        // Return flights: date strip already shows context — no header needed
+        if (type !== 'return') {
+            const label = day0[0].departureDate ? fmtDisplay(parseISO(day0[0].departureDate)) : '';
+            if (label) html += `<div class="flt-sec-hdr">${esc(label)}</div>`;
+        }
         html += _flightRowsHtml(day0, all, type);
     }
 
@@ -1194,6 +1209,8 @@ function _flightRowsHtml(subset, allFlights, type) {
             // Two-leg layout: departure time big, then dep/arr airport codes + arrival time
             const originCode  = f.originAirport || '???';
             const arrCode     = state.airport?.code || '';
+            const depDateStr  = f.departureDate ? fmtShort(parseISO(f.departureDate)) : '';
+            const arrDateStr  = f.arrivalDate   ? fmtShort(parseISO(f.arrivalDate))   : '';
             const airlineNote = [f.airline, termLabel].filter(Boolean).map(esc).join(' · ') + csNote;
             html += `<div class="flight-row${isSel ? ' selected' : ''}" role="option" aria-selected="${isSel}" tabindex="0"
                          data-idx="${rawIdx}"
@@ -1205,11 +1222,13 @@ function _flightRowsHtml(subset, allFlights, type) {
                                 <span class="fr-leg-icon">↗</span>
                                 <span class="fr-leg-time">${pad2(f.depHour)}:${pad2(f.depMinute)}</span>
                                 <span class="fr-leg-ap">${esc(originCode)}</span>
+                                <span class="fr-leg-date">${esc(depDateStr)}</span>
                             </div>
                             <div class="fr-leg">
                                 <span class="fr-leg-icon">↙</span>
                                 <span class="fr-leg-time arr">${pad2(f.hour)}:${pad2(f.minute)}</span>
                                 <span class="fr-leg-ap">${esc(arrCode)}</span>
+                                <span class="fr-leg-date">${esc(arrDateStr)}</span>
                             </div>
                             <div class="fr-note">${airlineNote}</div>
                         </span>
