@@ -522,14 +522,21 @@ function applyLocation(lat, lon, label) {
     track('parking-wizard-stage1-location-used', label);
 }
 
+function fmtCoords(lat, lon) {
+    const la = Math.abs(lat).toFixed(4) + '°' + (lat >= 0 ? 'N' : 'S');
+    const lo = Math.abs(lon).toFixed(4) + '°' + (lon >= 0 ? 'E' : 'W');
+    return la + ' ' + lo;
+}
+
 function gpsLookupSilent() {
     if (!navigator.geolocation) return;
     console.log('[location] GPS silent lookup (permission already granted)...');
     navigator.geolocation.getCurrentPosition(
         pos => {
-            applyLocation(pos.coords.latitude, pos.coords.longitude, 'GPS (±' + Math.round(pos.coords.accuracy) + 'm)');
+            const lat = pos.coords.latitude, lon = pos.coords.longitude;
+            applyLocation(lat, lon, 'GPS (±' + Math.round(pos.coords.accuracy) + 'm)');
             const btn = document.getElementById('locationBtn');
-            if (btn) { btn.innerHTML = '<span aria-hidden="true">✓</span> Sorted by precise GPS location'; btn.classList.add('done'); }
+            if (btn) { btn.innerHTML = '<span aria-hidden="true">✓</span> GPS: ' + fmtCoords(lat, lon); btn.classList.add('done'); }
         },
         () => ipLocationLookup(),
         { enableHighAccuracy:true, maximumAge:300000, timeout:10000 }
@@ -544,7 +551,8 @@ function ipLocationLookup() {
             if (d.latitude && d.longitude) {
                 applyLocation(d.latitude, d.longitude, 'IP (' + (d.city || '?') + ')');
                 const btn = document.getElementById('locationBtn');
-                if (btn) { btn.innerHTML = '<span aria-hidden="true">✓</span> Sorted by nearest \u00b7 tap for GPS precision'; btn.classList.add('done'); }
+                const place = [d.city, d.region].filter(Boolean).join(', ') || fmtCoords(d.latitude, d.longitude);
+                if (btn) { btn.innerHTML = '<span aria-hidden="true">✓</span> Near ' + place + ' \u00b7 tap for GPS'; btn.classList.add('done'); }
             }
         })
         .catch(e => console.warn('[location] IP lookup failed:', e));
@@ -558,8 +566,9 @@ function requestLocation() {
     console.log('[location] GPS button lookup...');
     navigator.geolocation.getCurrentPosition(
         pos => {
-            applyLocation(pos.coords.latitude, pos.coords.longitude, 'GPS (±' + Math.round(pos.coords.accuracy) + 'm)');
-            btn.innerHTML = '<span aria-hidden="true">✓</span> Sorted by precise GPS location';
+            const lat = pos.coords.latitude, lon = pos.coords.longitude;
+            applyLocation(lat, lon, 'GPS (±' + Math.round(pos.coords.accuracy) + 'm)');
+            btn.innerHTML = '<span aria-hidden="true">✓</span> GPS: ' + fmtCoords(lat, lon);
             btn.classList.add('done'); btn.disabled = false;
         },
         err => {
