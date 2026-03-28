@@ -105,18 +105,29 @@
         }
         .step-q { font-size: .875rem; color: var(--muted); margin-bottom: .875rem; }
 
-        /* ── Location button ── */
+        /* ── GPS big button (shown until GPS granted) ── */
         .location-btn {
             width: 100%; background: var(--purple); color: white; border: none;
             border-radius: 10px; padding: 1rem 1.25rem; font-size: .95rem; font-weight: 700;
             font-family: inherit; cursor: pointer;
             display: flex; align-items: center; justify-content: center; gap: .5rem;
-            margin-bottom: 1.375rem; transition: background .15s; min-height: 52px;
+            margin-bottom: 1.375rem; transition: opacity .3s, background .15s; min-height: 52px;
             -webkit-tap-highlight-color: transparent;
         }
         .location-btn:hover:not(:disabled) { background: var(--purple-d); }
-        .location-btn.done { background: var(--green); }
         .location-btn:disabled { opacity: .65; cursor: not-allowed; }
+
+        /* ── Nearest row (label + small GPS link, shown after GPS granted) ── */
+        .nearest-row {
+            display: flex; align-items: baseline;
+            justify-content: space-between; margin-bottom: .625rem;
+        }
+        .nearest-row .sec-lbl { margin-bottom: 0; }
+        .gps-link {
+            font-size: .72rem; font-weight: 600; color: var(--green);
+            white-space: nowrap; text-decoration: none;
+            border: none; background: none; font-family: inherit; padding: 0; cursor: default;
+        }
 
         /* ── Recents strip ── */
         .recents-section { margin-bottom: 1.375rem; }
@@ -291,17 +302,22 @@
     <!-- Step 1: Airport -->
     <section class="step active" id="step-1">
         <h2 class="step-title">Flying from</h2>
-        <button class="location-btn" id="locationBtn" onclick="requestLocation()">
-            <span aria-hidden="true">📍</span> Use precise GPS location
-        </button>
-
         <!-- Recent airports — shown only when history exists -->
         <div id="recentSection" class="recents-section" style="display:none">
             <p class="sec-lbl">Recent</p>
             <div class="recent-chips" id="recentChips"></div>
         </div>
 
-        <p class="sec-lbl" id="nearestLbl">Nearest airports</p>
+        <!-- Big GPS button — hidden once GPS is granted -->
+        <button class="location-btn" id="gpsBigBtn" onclick="requestLocation()">
+            📍 Make more accurate with GPS
+        </button>
+
+        <div class="nearest-row">
+            <p class="sec-lbl">Nearest airports</p>
+            <!-- Small GPS link — appears after GPS is granted -->
+            <span class="gps-link" id="gpsSmallLink" style="display:none"></span>
+        </div>
         <div class="airport-grid" id="popularGrid" role="list" aria-label="Nearest airports"></div>
         <p class="sec-lbl" style="margin-top:.5rem">All airports</p>
         <div class="airport-list" id="allList" role="list" aria-label="All airports"></div>
@@ -649,17 +665,38 @@ function fmtCoords(lat, lon) {
     return la + ' ' + lo;
 }
 
+// Transition the big button → small link once GPS is confirmed
+function gpsGranted(lat, lon) {
+    const bigBtn = document.getElementById('gpsBigBtn');
+    const smallLink = document.getElementById('gpsSmallLink');
+    if (bigBtn) {
+        bigBtn.style.opacity = '0';
+        setTimeout(() => { bigBtn.style.display = 'none'; }, 300);
+    }
+    if (smallLink) {
+        smallLink.textContent = '✓ GPS · ' + fmtCoords(lat, lon);
+        smallLink.style.display = '';
+    }
+}
+
 function gpsLookupSilent() {
     if (!navigator.geolocation) return;
+    // Permission already granted — skip big button, go straight to small link
+    const bigBtn = document.getElementById('gpsBigBtn');
+    if (bigBtn) bigBtn.style.display = 'none';
     console.log('[location] GPS silent lookup (permission already granted)...');
     navigator.geolocation.getCurrentPosition(
         pos => {
             const lat = pos.coords.latitude, lon = pos.coords.longitude;
             applyLocation(lat, lon, 'GPS (±' + Math.round(pos.coords.accuracy) + 'm)');
-            const btn = document.getElementById('locationBtn');
-            if (btn) { btn.innerHTML = '<span aria-hidden="true">✓</span> GPS: ' + fmtCoords(lat, lon); btn.classList.add('done'); }
+            gpsGranted(lat, lon);
         },
-        () => ipLocationLookup(),
+        () => {
+            // Silent GPS failed — restore big button and fall back to IP
+            const bigBtn = document.getElementById('gpsBigBtn');
+            if (bigBtn) bigBtn.style.display = '';
+            ipLocationLookup();
+        },
         { enableHighAccuracy:true, maximumAge:300000, timeout:10000 }
     );
 }
@@ -671,33 +708,34 @@ function ipLocationLookup() {
         .then(d => {
             if (d.latitude && d.longitude) {
                 applyLocation(d.latitude, d.longitude, 'IP (' + (d.city || '?') + ')');
-                const btn = document.getElementById('locationBtn');
-                const place = [d.city, d.region].filter(Boolean).join(', ') || fmtCoords(d.latitude, d.longitude);
-                if (btn) { btn.innerHTML = '<span aria-hidden="true">✓</span> Near ' + place + ' \u00b7 tap for GPS'; btn.classList.add('done'); }
+                // Big button stays — IP just improves sort, user can still tap for GPS
             }
         })
         .catch(e => console.warn('[location] IP lookup failed:', e));
 }
 
 function requestLocation() {
-    const btn = document.getElementById('locationBtn');
-    if (!navigator.geolocation) { btn.textContent = 'GPS not supported'; return; }
-    btn.disabled = true; btn.classList.remove('done');
-    btn.innerHTML = '<span aria-hidden="true">📍</span> Getting precise GPS location&hellip;';
+    const bigBtn = document.getElementById('gpsBigBtn');
+    if (!navigator.geolocation) {
+        if (bigBtn) { bigBtn.textContent = 'GPS not available on this device'; bigBtn.disabled = true; }
+        return;
+    }
+    if (bigBtn) { bigBtn.innerHTML = '📍 Getting your location…'; bigBtn.disabled = true; }
     console.log('[location] GPS button lookup...');
     navigator.geolocation.getCurrentPosition(
         pos => {
             const lat = pos.coords.latitude, lon = pos.coords.longitude;
             applyLocation(lat, lon, 'GPS (±' + Math.round(pos.coords.accuracy) + 'm)');
-            btn.innerHTML = '<span aria-hidden="true">✓</span> GPS: ' + fmtCoords(lat, lon);
-            btn.classList.add('done'); btn.disabled = false;
+            gpsGranted(lat, lon);
         },
         err => {
             console.warn('[location] GPS error:', err.code, err.message);
-            let msg = 'Could not get GPS — try again';
-            if (err.code === 1) msg = 'GPS blocked — check browser settings';
-            btn.innerHTML = '<span aria-hidden="true">📍</span> ' + msg;
-            btn.disabled = false;
+            if (bigBtn) {
+                bigBtn.innerHTML = err.code === 1
+                    ? '⚠ GPS blocked · check your browser settings'
+                    : '📍 Could not get GPS · tap to try again';
+                bigBtn.disabled = false;
+            }
         },
         { enableHighAccuracy:true, maximumAge:60000, timeout:30000 }
     );
