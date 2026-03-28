@@ -242,6 +242,39 @@
             border-radius: 7px; border: 1px solid #c6f6d5; display: none;
         }
         .flight-hint.visible { display: block; }
+        .flight-search {
+            width: 100%; box-sizing: border-box;
+            border: 1.5px solid var(--border); border-radius: 10px;
+            padding: .625rem .875rem; font-size: .875rem; font-family: inherit;
+            margin-bottom: .5rem; background: var(--bg); color: var(--text);
+            outline: none; display: none;
+        }
+        .flight-search:focus { border-color: var(--purple); }
+        .flight-loading {
+            padding: 1.25rem; text-align: center; color: var(--muted);
+            font-size: .85rem;
+        }
+        .flight-day-sep {
+            padding: .4rem 1rem; font-size: .7rem; font-weight: 700; letter-spacing: .04em;
+            text-transform: uppercase; color: var(--muted); background: var(--purple-l);
+            border-bottom: 1px solid var(--border);
+        }
+        .fr-term {
+            display: inline-block; margin-left: .35rem;
+            font-size: .65rem; font-weight: 700; padding: .1rem .3rem;
+            border-radius: 4px; background: var(--purple-l); color: var(--purple);
+            vertical-align: middle; border: 1px solid currentColor;
+        }
+        .fr-cs { font-size: .65rem; color: var(--muted); }
+        .fr-codeshare { font-size: .65rem; color: var(--muted); font-style: italic; }
+        .flight-no-results { padding: .75rem 1rem; }
+        .fnr-msg { font-size: .85rem; color: var(--muted); margin-bottom: .625rem; }
+        .fnr-opt {
+            padding: .625rem .875rem; font-size: .82rem; color: var(--purple);
+            cursor: pointer; border-radius: 8px; border: 1px solid var(--border);
+            margin-bottom: .375rem; display: flex; align-items: center; gap: .5rem;
+        }
+        .fnr-opt:hover { background: var(--purple-l); }
 
         /* ── Time picker ── */
         .time-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .4rem; }
@@ -334,6 +367,7 @@
         <h2 class="step-title">Parking from time</h2>
         <div class="flight-section">
             <p class="sec-lbl">Your outbound flight <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.7rem;color:var(--muted)">(optional)</span></p>
+            <input type="search" id="outboundFlightSearch" class="flight-search" placeholder="Search destination or flight number…" autocomplete="off" oninput="filterFlights('outboundFlightList','outbound')">
             <div class="flight-list" id="outboundFlightList" role="listbox"></div>
             <span class="skip-flight-link" tabindex="0"
                   onclick="skipFlight('outbound')"
@@ -356,6 +390,7 @@
         <h2 class="step-title">Returning to collect car time</h2>
         <div class="flight-section">
             <p class="sec-lbl">Your return flight <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.7rem;color:var(--muted)">(optional)</span></p>
+            <input type="search" id="returnFlightSearch" class="flight-search" placeholder="Search destination or flight number…" autocomplete="off" oninput="filterFlights('returnFlightList','return')">
             <div class="flight-list" id="returnFlightList" role="listbox"></div>
             <span class="skip-flight-link" tabindex="0"
                   onclick="skipFlight('return')"
@@ -426,7 +461,91 @@ const OTHERS = [
 ];
 const ALL = POPULAR.concat(OTHERS);
 
-// ─── Flight templates ──────────────────────────────────────────────────────────
+// ─── Flight API ────────────────────────────────────────────────────────────────
+// Destination alias map: common holiday resort names → searchable city/airport.
+// Customers type where they're going, not the IATA code.
+const DEST_ALIASES = {
+    'benidorm':'alicante', 'costa blanca':'alicante',
+    'magaluf':'palma', 'alcudia':'palma', 'mallorca':'palma', 'majorca':'palma',
+    'zante':'zakynthos', 'laganas':'zakynthos',
+    'kavos':'corfu', 'sidari':'corfu',
+    'malia':'heraklion', 'hersonissos':'heraklion', 'crete':'heraklion',
+    'mykonos town':'mykonos',
+    'skiathos town':'skiathos',
+    'kefalonia':'cephalonia',
+    'gran canaria':'las palmas',
+    'tenerife south':'tenerife', 'tenerife norte':'tenerife',
+    'preveza':'aktion', 'lefkada':'aktion',
+    'turin':'turin',  // identity — just ensures "tur" suggestions rank it
+};
+
+// In-session cache so navigating back/forward doesn't re-fetch
+// Key: "LGW:2026-04-18:out" or "TRN:2026-04-28:in:LGW"
+const _flightCache = new Map();
+
+// opts.destination → return-flight mode (flights arriving at opts.destination)
+// opts.query       → search string forwarded to dock-yard API
+function fetchFlights(airportCode, date, opts = {}) {
+    const { destination = '', query = '' } = opts;
+    const dateStr = fmtISO(date);
+    const mode    = destination ? 'return' : 'outbound';
+    const key     = airportCode + ':' + dateStr + (destination ? ':in:' + destination : ':out') + (query ? ':q:' + query : '');
+    if (_flightCache.has(key)) return _flightCache.get(key);
+
+    const params = new URLSearchParams({ location: airportCode, date: dateStr });
+    if (destination) params.set('destination', destination);
+    if (query)       params.set('query', query);
+
+    const p = fetch('/api/flights?' + params)
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .then(raw => normaliseFlights(raw, dateStr, mode))
+        .catch(e => { console.warn('[flights] fetch failed', e); return []; });
+    _flightCache.set(key, p);
+    return p;
+}
+
+// mode: 'outbound' → terminal is at departure airport (LGW)
+//       'return'   → terminal is at arrival airport  (LGW)
+function normaliseFlights(raw, dateStr, mode) {
+    if (!Array.isArray(raw)) return [];
+
+    // Build a reference → carrier name map so codeshares can say "operated by X"
+    const refToCarrier = {};
+    raw.forEach(e => {
+        if (e.flight?.reference && e.flight?.carrier?.name) {
+            refToCarrier[e.flight.reference] = e.flight.carrier.name;
+        }
+    });
+
+    return raw
+        .map(e => {
+            const dep = e.departure || {};
+            const arr = e.arrival   || {};
+            const [hStr, mStr] = (dep.time || '00:00').split(':');
+            const terminal = mode === 'return' ? (arr.terminal || '') : (dep.terminal || '');
+            const operatedBy = e.info?.is_codeshare && e.info?.codeshare_operator_reference
+                ? refToCarrier[e.info.codeshare_operator_reference] || ''
+                : '';
+            return {
+                code:          e.flight?.code || '',
+                airline:       e.flight?.carrier?.name || e.flight?.carrier?.code || '',
+                dest:          arr.city || arr.airport || '',
+                destAirport:   arr.airport_iata || '',
+                originAirport: dep.airport_iata || '',
+                hour:          parseInt(hStr, 10) || 0,
+                minute:        parseInt(mStr, 10) || 0,
+                terminal,
+                isCodeshare:   !!e.info?.is_codeshare,
+                operatedBy,
+                departureDate: dateStr,
+                _raw:          e,
+            };
+        })
+        .sort((a, b) => a.hour !== b.hour ? a.hour - b.hour : a.minute - b.minute);
+}
+
+// ─── (old flight templates removed — now using real API) ──────────────────────
+// kept section comment so line-numbers stay stable for editors
 const FLIGHT_TEMPLATES = {
     LHR:{ al:['BA','VS','AA','EK','LH'],  dests:['New York','Dubai','Los Angeles','Sydney','Singapore','Toronto','Hong Kong','Cape Town','Johannesburg','Mumbai'] },
     LGW:{ al:['EZY','BA','TOM','FR','DY'],dests:['Málaga','Alicante','Faro','Barcelona','Tenerife','Ibiza','Amsterdam','Geneva','Rome','Lanzarote'] },
@@ -439,21 +558,6 @@ const FLIGHT_TEMPLATES = {
     DEFAULT:{ al:['EZY','BA','FR','TOM'], dests:['Amsterdam','Alicante','Faro','Barcelona','Málaga','Tenerife','Dublin','Paris','Rome'] },
 };
 
-function genFlights(airportCode, date, seedOffset) {
-    const tmpl = FLIGHT_TEMPLATES[airportCode] || FLIGHT_TEMPLATES.DEFAULT;
-    const seed = (date.getDate() * 97 + date.getMonth() * 31 + (seedOffset || 0)) & 0xffff;
-    const base = [5,7,9,11,13,15,17,19];
-    const hours = [];
-    for (let i = 0; i < 5; i++) hours.push(base[(seed + i*3) % base.length]);
-    hours.sort((a,b) => a-b);
-    return hours.map((h,i) => ({
-        code:    tmpl.al[(seed+i*5)%tmpl.al.length] + (((seed*3+i*17+100)%899)+100),
-        airline: tmpl.al[(seed+i*5)%tmpl.al.length],
-        dest:    tmpl.dests[(seed+i*11)%tmpl.dests.length],
-        hour:    h,
-        minute:  [0,15,30,45][(seed+i*7)%4],
-    }));
-}
 
 // ─── State ─────────────────────────────────────────────────────────────────────
 const state = { airport:null, dropoffDate:null, dropoffTime:null, dropoffFlight:null, returnDate:null, returnTime:null, returnFlight:null };
@@ -809,11 +913,24 @@ function pickDropoffDate(dateStr) {
 
 // ─── Step 3: Drop-off time ────────────────────────────────────────────────────
 function setupDropoffTime() {
-    if (state.airport && state.dropoffDate) {
-        renderFlightList('outboundFlightList', genFlights(state.airport.code, state.dropoffDate, 0), 'outbound');
-    }
     renderTimePicker('dropoffTimeGrid', state.dropoffTime, state.dropoffFlight ? Math.max(0, state.dropoffFlight.hour - 3) : state.dropoffTime, onDropoffTime);
     document.getElementById('outboundHint').classList.remove('visible');
+
+    if (!state.airport || !state.dropoffDate) return;
+
+    // Show loading skeleton immediately
+    const container = document.getElementById('outboundFlightList');
+    container.innerHTML = '<div class="flight-loading">Loading flights…</div>';
+    document.getElementById('outboundFlightSearch').style.display = 'none';
+
+    // Fetch parking day + next day concurrently (customer may park overnight before flying)
+    const d0 = state.dropoffDate;
+    const d1 = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + 1);
+    Promise.all([fetchFlights(state.airport.code, d0), fetchFlights(state.airport.code, d1)])
+        .then(([f0, f1]) => {
+            const nextDay = f1.map(f => ({ ...f, _nextDay: true }));
+            renderFlightList('outboundFlightList', [...f0, ...nextDay], 'outbound');
+        });
 }
 
 function onDropoffTime(h) {
@@ -853,11 +970,26 @@ function pickReturnDate(dateStr) {
 
 // ─── Step 5: Return time ──────────────────────────────────────────────────────
 function setupReturnTime() {
-    if (state.airport && state.returnDate) {
-        renderFlightList('returnFlightList', genFlights(state.airport.code, state.returnDate, 500), 'return');
-    }
     renderTimePicker('returnTimeGrid', state.returnTime, state.returnFlight ? Math.min(23, state.returnFlight.hour + 2) : state.returnTime, onReturnTime);
     document.getElementById('returnHint').classList.remove('visible');
+
+    // Only show return flight picker if the customer selected an outbound flight —
+    // without it we don't know which airport they're flying back from.
+    const flightSection = document.querySelector('#step-5 .flight-section');
+    const outDest = state.dropoffFlight?.destAirport;
+
+    if (!outDest) {
+        flightSection.style.display = 'none';
+        return;
+    }
+
+    flightSection.style.display = '';
+    const container = document.getElementById('returnFlightList');
+    container.innerHTML = '<div class="flight-loading">Loading flights…</div>';
+    document.getElementById('returnFlightSearch').style.display = 'none';
+
+    fetchFlights(outDest, state.returnDate, { destination: state.airport.code })
+        .then(flights => renderFlightList('returnFlightList', flights, 'return'));
 }
 
 function onReturnTime(h) {
@@ -869,28 +1001,103 @@ function onReturnTime(h) {
 }
 
 // ─── Flight picker ─────────────────────────────────────────────────────────────
+function _searchInputId(containerId) {
+    return containerId === 'outboundFlightList' ? 'outboundFlightSearch' : 'returnFlightSearch';
+}
+
 function renderFlightList(containerId, flights, type) {
     const container = document.getElementById(containerId);
-    container.innerHTML = flights.map((f,i) => {
+    container._flights = flights;
+
+    // Show / hide search input
+    const inp = document.getElementById(_searchInputId(containerId));
+    if (inp) { inp.value = ''; inp.style.display = flights.length ? '' : 'none'; }
+
+    if (!flights.length) {
+        _renderNoResults(container, '');
+        return;
+    }
+    _renderFlightRows(container, flights, type);
+}
+
+function _renderNoResults(container, query) {
+    const msg = query
+        ? `No flights found for <strong>${esc(query)}</strong>`
+        : 'No flights found for this date';
+    container.innerHTML =
+        `<div class="flight-no-results">
+            <div class="fnr-msg">${msg}</div>
+            <div class="fnr-options">
+                <div class="fnr-opt" onclick="skipFlight('${container.id === 'outboundFlightList' ? 'outbound' : 'return'}')">
+                    Enter time manually instead
+                </div>
+            </div>
+        </div>`;
+}
+
+// Renders a subset of flights (may be filtered). Always indexes into container._flights.
+function _renderFlightRows(container, subset, type) {
+    const all      = container._flights || [];
+    const selFlight = type === 'outbound' ? state.dropoffFlight : state.returnFlight;
+    let html = '';
+    let lastDate = null;
+
+    for (let i = 0; i < subset.length; i++) {
+        const f      = subset[i];
+        const rawIdx = all.indexOf(f);
+        const isSel  = selFlight && selFlight.code === f.code && selFlight.departureDate === f.departureDate;
+
+        // Day separator when the list spans two dates (overnight parking)
+        if (f._nextDay && f.departureDate !== lastDate) {
+            html += `<div class="flight-day-sep">Next day — ${esc(fmtDisplay(parseISO(f.departureDate)))}</div>`;
+        }
+        lastDate = f.departureDate;
+
         const note = type === 'outbound'
-            ? 'Suggested drop-off: ' + pad2(Math.max(0, f.hour - 3)) + ':00'
-            : 'Suggested collection: ' + pad2(Math.min(23, f.hour + 2)) + ':00';
-        const isSel = type === 'outbound'
-            ? state.dropoffFlight && state.dropoffFlight.code === f.code
-            : state.returnFlight  && state.returnFlight.code  === f.code;
-        return `<div class="flight-row${isSel?' selected':''}" role="option" aria-selected="${isSel}" tabindex="0"
-                     onclick="pickFlight('${type}',${i})"
-                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickFlight('${type}',${i});}">
+            ? 'Drop off by ' + pad2(Math.max(0, f.hour - 3)) + ':00'
+            : 'Collect at '  + pad2(Math.min(23, f.hour + 2)) + ':00';
+        const termBadge = f.terminal
+            ? `<span class="fr-term">T${esc(f.terminal)}</span>` : '';
+        const csNote = f.isCodeshare
+            ? `<span class="fr-codeshare"> · operated by ${esc(f.operatedBy || 'another carrier')}</span>` : '';
+
+        html += `<div class="flight-row${isSel ? ' selected' : ''}" role="option" aria-selected="${isSel}" tabindex="0"
+                     data-idx="${rawIdx}"
+                     onclick="pickFlight('${type}',${rawIdx})"
+                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickFlight('${type}',${rawIdx});}">
                     <span class="fr-code">${esc(f.code)}</span>
                     <span class="fr-time">${pad2(f.hour)}:${pad2(f.minute)}</span>
                     <span class="fr-arrow" aria-hidden="true">→</span>
                     <span class="fr-dest">
-                        <div>${esc(f.dest)}</div>
-                        <div class="fr-note">${note}</div>
+                        <div>${esc(f.dest)}${termBadge}</div>
+                        <div class="fr-note">${note}${csNote}</div>
                     </span>
                 </div>`;
-    }).join('');
-    container._flights = flights;
+    }
+    container.innerHTML = html;
+}
+
+function filterFlights(containerId, type) {
+    const inp       = document.getElementById(_searchInputId(containerId));
+    const container = document.getElementById(containerId);
+    const all       = container._flights || [];
+    const q         = inp ? inp.value.trim().toLowerCase() : '';
+
+    if (!q) { _renderFlightRows(container, all, type); return; }
+
+    // Expand alias then match against city, airport code, flight code, airline
+    const expanded = DEST_ALIASES[q] || q;
+    const filtered = all.filter(f => {
+        const dl = f.dest.toLowerCase(), al = f.airline.toLowerCase(), cl = f.code.toLowerCase();
+        return dl.includes(expanded) || dl.includes(q) || al.includes(q) ||
+               cl.includes(q) || f.destAirport.toLowerCase().includes(q);
+    });
+
+    if (!filtered.length) {
+        _renderNoResults(container, inp.value.trim());
+    } else {
+        _renderFlightRows(container, filtered, type);
+    }
 }
 
 function pickFlight(type, idx) {
@@ -899,23 +1106,29 @@ function pickFlight(type, idx) {
     const container= document.getElementById(cid);
     const f        = (container._flights || [])[idx];
     if (!f) return;
+
+    // Update selection highlight (find by data-idx — stable after filtering)
     container.querySelectorAll('.flight-row').forEach(el => el.classList.remove('selected','confirming'));
-    const el = container.querySelectorAll('.flight-row')[idx];
+    const el = container.querySelector('.flight-row[data-idx="' + idx + '"]');
     if (el) { el.classList.add('selected'); setTimeout(() => el.classList.add('confirming'), 80); }
+
+    const termNote = f.terminal ? ' · Terminal ' + f.terminal : '';
     if (type === 'outbound') {
         state.dropoffFlight = f;
         renderTimePicker('dropoffTimeGrid', state.dropoffTime, Math.max(0, f.hour - 3), onDropoffTime);
         const hint = document.getElementById(hintId);
-        hint.textContent = '✈ ' + f.code + ' at ' + pad2(f.hour) + ':' + pad2(f.minute) + ' — suggested drop-off time highlighted below';
+        hint.textContent = '✈ ' + f.code + ' at ' + pad2(f.hour) + ':' + pad2(f.minute) + termNote + ' — suggested drop-off time highlighted below';
         hint.classList.add('visible');
         track('parking-wizard-stage3-outbound-flight', f.code + ':' + f.dest);
+        Favourites.pushFlight(state.airport.code, f);
     } else {
         state.returnFlight = f;
         renderTimePicker('returnTimeGrid', state.returnTime, Math.min(23, f.hour + 2), onReturnTime);
         const hint = document.getElementById(hintId);
-        hint.textContent = '✈ ' + f.code + ' lands ~' + pad2(f.hour) + ':' + pad2(f.minute) + ' — suggested collection time highlighted below';
+        hint.textContent = '✈ ' + f.code + ' lands ~' + pad2(f.hour) + ':' + pad2(f.minute) + termNote + ' — suggested collection time highlighted below';
         hint.classList.add('visible');
         track('parking-wizard-stage5-return-flight', f.code + ':' + f.dest);
+        Favourites.pushFlight(state.airport.code, f);
     }
 }
 
@@ -1005,12 +1218,15 @@ function submitSearch() {
 
 // ─── URL builder ───────────────────────────────────────────────────────────────
 function buildSearchUrl() {
-    const { airport:a, dropoffDate:dd, dropoffTime:dt, returnDate:rd, returnTime:rt } = state;
+    const { airport:a, dropoffDate:dd, dropoffTime:dt, dropoffFlight:df, returnDate:rd, returnTime:rt } = state;
     const p = new URLSearchParams({
         Referer:'https://www.holidayextras.com/', agent:'WEB1', domain:'www.holidayextras.com',
         lang:'en', product:'cp', request:'1', rule_set:'hx', selectProduct:'cp', tc:'1', search:'',
         Location:a.code, ArrivalTime:toHHMM(dt), DepartTime:toHHMM(rt),
-        flightTime:'', flight_number:'default', terminal:'', CampaignID:'65642',
+        flightTime:     df ? pad2(df.hour) + pad2(df.minute) : '',
+        flight_number:  df ? df.code : 'default',
+        terminal:       df ? df.terminal : '',
+        CampaignID:'65642',
     });
     const ah = toHuman(dd).replace(/ /g,'+'), dh = toHuman(rd).replace(/ /g,'+');
     const ad = toDDMMYY(dd).replace(/\//g,'%2F'), dD = toDDMMYY(rd).replace(/\//g,'%2F');

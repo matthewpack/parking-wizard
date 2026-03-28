@@ -8,6 +8,48 @@ const PORT = process.env.PORT || 8080;
 // Gzip/Brotli all responses
 app.use(compression());
 
+// ─── Flight API proxy ─────────────────────────────────────────────────────────
+// Thin proxy to the Holiday Extras dock-yard flight search endpoint.
+// Caches results in memory for 15 minutes to avoid hammering upstream.
+const flightCache = new Map(); // "LGW:2026-04-18" → { data, expires }
+const CACHE_TTL   = 15 * 60 * 1000;
+
+app.get('/api/flights', async (req, res) => {
+    const { location, date, destination, query = '' } = req.query;
+
+    // location + date are always required
+    if (!location || !date)                   return res.status(400).json({ error: 'location and date required' });
+    if (!/^[A-Z]{3}$/.test(location))         return res.status(400).json({ error: 'invalid location' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date))   return res.status(400).json({ error: 'invalid date' });
+    if (destination && !/^[A-Z]{3}$/.test(destination)) return res.status(400).json({ error: 'invalid destination' });
+
+    // Two modes:
+    //   outbound: location=LGW  + departDate=DATE  (flights OUT of parking airport)
+    //   return:   location=ORIG + arrivalDate=DATE  + destination=LGW  (flights IN to parking airport)
+    const isReturn = !!destination;
+
+    // Cache key includes query so filtered results don't poison the full-list cache
+    const key    = location + ':' + date + (isReturn ? ':in:' + destination : ':out') + (query ? ':q:' + query : '');
+    const cached = flightCache.get(key);
+    if (cached && cached.expires > Date.now()) return res.json(cached.data);
+
+    try {
+        const params = new URLSearchParams({ query, location, country: '' });
+        if (isReturn) { params.set('arrivalDate', date); params.set('destination', destination); }
+        else          { params.set('departDate',  date); }
+
+        const url      = `https://www.holidayextras.com/dock-yard/flight/search?${params}`;
+        const upstream = await fetch(url, { headers: { Accept: 'application/json', 'User-Agent': 'parking-wizard/1.0' } });
+        if (!upstream.ok) return res.status(upstream.status).json({ error: 'upstream error' });
+        const data = await upstream.json();
+        flightCache.set(key, { data, expires: Date.now() + CACHE_TTL });
+        res.json(data);
+    } catch (e) {
+        console.error('[flights]', e.message);
+        res.status(502).json({ error: 'fetch failed' });
+    }
+});
+
 // Serve static files with sensible cache headers
 app.use(express.static(path.join(__dirname), {
     maxAge: 0,           // index.html — always revalidate
