@@ -254,11 +254,13 @@
             padding: 1.25rem; text-align: center; color: var(--muted);
             font-size: .85rem;
         }
-        .flight-day-sep {
-            padding: .4rem 1rem; font-size: .7rem; font-weight: 700; letter-spacing: .04em;
-            text-transform: uppercase; color: var(--muted); background: var(--purple-l);
-            border-bottom: 1px solid var(--border);
+        .flt-date-hdr { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: .75rem 0 .3rem; }
+        .flt-date-hdr:first-child { margin-top: 0; }
+        .fly-next-day-link {
+            display: block; text-align: center; font-size: .8rem; color: var(--purple);
+            padding: .625rem .5rem; cursor: pointer; text-decoration: none;
         }
+        .fly-next-day-link:hover { text-decoration: underline; }
         .fr-codeshare { font-size: .65rem; color: var(--muted); font-style: italic; }
         .fr-tail {
             height: 44px; width: auto; flex-shrink: 0; object-fit: contain;
@@ -1034,37 +1036,60 @@ function _searchInputId(containerId) {
 function renderFlightList(containerId, flights, type) {
     const container = document.getElementById(containerId);
 
-    // Pin the currently selected flight + any localStorage recents to the top
-    const selFlight    = type === 'outbound' ? state.dropoffFlight : state.returnFlight;
-    const recentCodes  = new Set();
-    const recents      = [];
+    // Collect recents: currently selected flight + localStorage history
+    const selFlight   = type === 'outbound' ? state.dropoffFlight : state.returnFlight;
+    const recentCodes = new Set();
+    const recents     = [];
 
     if (selFlight) {
         recentCodes.add(selFlight.code);
-        // Find the full flight object from the new list (has tailfin etc)
         const match = flights.find(f => f.code === selFlight.code);
-        recents.push({ ...(match || selFlight), _isPinned: true });
+        recents.push({ ...(match || selFlight), _isRecent: true });
     }
-
     if (state.airport) {
         Favourites.flights(state.airport.code).forEach(f => {
-            if (!recentCodes.has(f.code)) {
-                recentCodes.add(f.code);
-                recents.push({ ...f, _isRecent: true });
-            }
+            if (!recentCodes.has(f.code)) { recentCodes.add(f.code); recents.push({ ...f, _isRecent: true }); }
         });
     }
 
-    // Build the full list: recents section (if any) then the rest
-    const rest = flights.filter(f => !recentCodes.has(f.code));
-    const combined = recents.length ? [...recents.map(f => ({ ...f, _recentSep: recents.indexOf(f) === 0 })), ...rest] : flights;
-    container._flights = combined;
+    const day0 = flights.filter(f => !f._nextDay && !recentCodes.has(f.code));
+    const day1 = flights.filter(f =>  f._nextDay && !recentCodes.has(f.code));
+
+    // Flat combined array — indexed by data-idx in every flight row
+    container._flights = [...recents, ...day0, ...day1];
 
     const inp = document.getElementById(_searchInputId(containerId));
     if (inp) { inp.value = ''; inp.style.display = flights.length ? '' : 'none'; }
 
-    if (!combined.length) { _renderNoResults(container, ''); return; }
-    _renderFlightRows(container, combined, type);
+    if (!container._flights.length) { _renderNoResults(container, ''); return; }
+    _renderFlightStructure(container, recents, day0, day1, type);
+}
+
+function _renderFlightStructure(container, recents, day0, day1, type) {
+    const all = container._flights;
+    let html  = '';
+
+    if (recents.length) {
+        html += '<p class="sec-lbl flt-date-hdr">Recently selected</p>';
+        html += '<div class="flight-list">' + _flightRowsHtml(recents, all, type) + '</div>';
+    }
+
+    if (day0.length) {
+        const label = day0[0].departureDate ? fmtDisplay(parseISO(day0[0].departureDate)) : '';
+        if (label) html += `<p class="sec-lbl flt-date-hdr">${esc(label)}</p>`;
+        html += '<div class="flight-list">' + _flightRowsHtml(day0, all, type) + '</div>';
+    }
+
+    if (day1.length) {
+        const label = day1[0].departureDate ? fmtDisplay(parseISO(day1[0].departureDate)) : '';
+        html += `<a class="fly-next-day-link" href="#${container.id}NextDay">I fly on the following day ↓</a>`;
+        html += `<div id="${container.id}NextDay">`;
+        if (label) html += `<p class="sec-lbl flt-date-hdr">${esc(label)}</p>`;
+        html += '<div class="flight-list">' + _flightRowsHtml(day1, all, type) + '</div>';
+        html += '</div>';
+    }
+
+    container.innerHTML = html;
 }
 
 function _renderNoResults(container, query) {
@@ -1082,37 +1107,17 @@ function _renderNoResults(container, query) {
         </div>`;
 }
 
-// Renders a subset of flights (may be filtered). Always indexes into container._flights.
-function _renderFlightRows(container, subset, type) {
-    const all       = container._flights || [];
+// Returns HTML string for a subset of flight rows. Indexes into allFlights for stable data-idx.
+function _flightRowsHtml(subset, allFlights, type) {
     const selFlight = type === 'outbound' ? state.dropoffFlight : state.returnFlight;
+    const TERM_NAMES = { N:'North Terminal', S:'South Terminal', T:'Tunnel Terminal' };
     let html = '';
-    let shownRecentSep = false;
-    let lastDate = null;
 
-    for (let i = 0; i < subset.length; i++) {
-        const f      = subset[i];
-        const rawIdx = all.indexOf(f);
-        const isSel  = selFlight && selFlight.code === f.code;
-
-        // Recents separator before the first recent entry
-        if ((f._isPinned || f._isRecent) && !shownRecentSep) {
-            html += `<div class="flight-day-sep">Recently selected</div>`;
-            shownRecentSep = true;
-        }
-        // Day separator when spanning two dates (overnight parking)
-        if (!f._isPinned && !f._isRecent && f._nextDay && f.departureDate !== lastDate) {
-            html += `<div class="flight-day-sep">Next day — ${esc(fmtDisplay(parseISO(f.departureDate)))}</div>`;
-        }
-        if (!f._isPinned && !f._isRecent) lastDate = f.departureDate;
-
-        // Human-readable terminal at the parking airport (not the destination)
-        const TERM_NAMES = { N:'North Terminal', S:'South Terminal', T:'Tunnel Terminal' };
-        const termLabel = f.terminal
-            ? (TERM_NAMES[f.terminal] || 'Terminal ' + f.terminal)
-            : '';
-        const csNote = f.isCodeshare
-            ? ` · operated by ${esc(f.operatedBy || 'another carrier')}` : '';
+    for (const f of subset) {
+        const rawIdx    = allFlights.indexOf(f);
+        const isSel     = selFlight && selFlight.code === f.code;
+        const termLabel = f.terminal ? (TERM_NAMES[f.terminal] || 'Terminal ' + f.terminal) : '';
+        const csNote    = f.isCodeshare ? ` · operated by ${esc(f.operatedBy || 'another carrier')}` : '';
         const tailfinHtml = f.tailfin
             ? `<img class="fr-tail" src="${esc(f.tailfin)}" alt="${esc(f.airline)}" loading="lazy" onerror="this.style.display='none'">` : '';
 
@@ -1130,7 +1135,7 @@ function _renderFlightRows(container, subset, type) {
                     ${tailfinHtml}
                 </div>`;
     }
-    container.innerHTML = html;
+    return html;
 }
 
 function filterFlights(containerId, type) {
@@ -1139,9 +1144,16 @@ function filterFlights(containerId, type) {
     const all       = container._flights || [];
     const q         = inp ? inp.value.trim().toLowerCase() : '';
 
-    if (!q) { _renderFlightRows(container, all, type); return; }
+    if (!q) {
+        // Restore structured view — re-derive the three buckets from flags on the stored list
+        const recents = all.filter(f =>  f._isRecent);
+        const day0    = all.filter(f => !f._isRecent && !f._nextDay);
+        const day1    = all.filter(f => !f._isRecent &&  f._nextDay);
+        _renderFlightStructure(container, recents, day0, day1, type);
+        return;
+    }
 
-    // Expand alias then match against city, airport code, flight code, airline
+    // Flat filtered list when searching — expand alias, match multiple fields
     const expanded = DEST_ALIASES[q] || q;
     const filtered = all.filter(f => {
         const dl = f.dest.toLowerCase(), al = f.airline.toLowerCase(), cl = f.code.toLowerCase();
@@ -1152,7 +1164,7 @@ function filterFlights(containerId, type) {
     if (!filtered.length) {
         _renderNoResults(container, inp.value.trim());
     } else {
-        _renderFlightRows(container, filtered, type);
+        container.innerHTML = '<div class="flight-list">' + _flightRowsHtml(filtered, all, type) + '</div>';
     }
 }
 
