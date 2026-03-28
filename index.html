@@ -268,8 +268,18 @@
             background: var(--purple-l);
         }
         .flt-next-day-row:hover { background: #e9e1f7; }
+        /* ── Return flight: single bordered wrapper containing date strip + rows ── */
+        .flt-return-wrap {
+            border: 1.5px solid var(--border); border-radius: 10px;
+            overflow: hidden; margin-bottom: .625rem;
+        }
+        .flt-return-wrap > #returnFlightList { /* no double border inside */ }
+        .flt-return-wrap > #returnFlightList > .flight-list { border: none; border-radius: 0; margin-bottom: 0; }
+        /* search inside wrapper */
+        .flt-return-search { border-left: none !important; border-right: none !important; border-top: none !important;
+            border-radius: 0 !important; margin-bottom: 0 !important; border-bottom: 1px solid var(--border) !important; }
         /* ── Flight date strip ── */
-        .flt-date-strip { display: flex; gap: .5rem; margin-bottom: .75rem; }
+        .flt-date-strip { display: flex; gap: .5rem; margin-bottom: 0; padding: .5rem; border-bottom: 1px solid var(--border); background: #f7f6fb; }
         .flt-date-btn {
             flex: 1; padding: .55rem .25rem; border: 1.5px solid var(--border);
             border-radius: 8px; font-size: .73rem; font-weight: 600; text-align: center;
@@ -421,9 +431,11 @@
         <h2 class="step-title">Your return flight</h2>
         <div class="flight-section" id="returnFlightSection">
             <p class="flt-ctx" id="returnFlightCtx"></p>
-            <div class="flt-date-strip" id="returnDateStrip"></div>
-            <input type="search" id="returnFlightSearch" class="flight-search" placeholder="Search flight number…" autocomplete="off" oninput="filterFlights('returnFlightList','return')">
-            <div class="flight-list" id="returnFlightList" role="listbox"></div>
+            <div class="flt-return-wrap">
+                <div class="flt-date-strip" id="returnDateStrip"></div>
+                <input type="search" id="returnFlightSearch" class="flight-search flt-return-search" placeholder="Search flight number…" autocomplete="off" oninput="filterFlights('returnFlightList','return')">
+                <div id="returnFlightList" role="listbox"></div>
+            </div>
             <span class="skip-flight-link" tabindex="0"
                   onclick="skipFlight('return')"
                   onkeydown="if(event.key==='Enter')skipFlight('return')">Skip — I'll enter the time manually</span>
