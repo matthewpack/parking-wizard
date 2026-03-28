@@ -339,6 +339,7 @@
         .rr-body { flex: 1; min-width: 0; }
         .rr-lbl  { font-size: .72rem; color: var(--muted); }
         .rr-val  { font-size: .95rem; font-weight: 600; color: var(--text); margin-top: .1rem; }
+        .rr-flight-note { font-size: .75rem; color: var(--muted); margin-top: .25rem; }
         .rr-edit { background: none; border: none; color: var(--muted); cursor: pointer; padding: .375rem; border-radius: 5px; font-size: .95rem; transition: background .12s; flex-shrink: 0; }
         .rr-edit:hover { background: #f0f4f8; color: var(--text); }
 
@@ -1366,12 +1367,20 @@ function buildReview() {
             <div class="dc-dates">${fmtDisplay(dd)} &ndash; ${fmtDisplay(rd)}</div>
          </div>`;
 
-    const flightNote = (f,prefix) => f ? `<div style="font-size:.72rem;color:var(--muted);margin-top:.2rem">${prefix} ${esc(f.code)} → ${esc(f.dest)}</div>` : '';
+    const rn = (txt) => `<div class="rr-flight-note">${txt}</div>`;
+
+    const dropNote = df
+        ? rn(`to catch flight ${esc(df.code)} to ${esc(df.dest)}, departing ${pad2(df.hour)}:${pad2(df.minute)}`)
+        : '';
+
+    const retNote = rf
+        ? rn(`returning on flight ${esc(rf.code)}, arrives back at ${esc(a.short)} ${pad2(rf.hour)}:${pad2(rf.minute)}`)
+        : '';
 
     document.getElementById('reviewRows').innerHTML =
-        rrRow('✈️','Airport',  a.full + ' (' + a.code + ')', 1) +
-        rrRow('🚗','Drop-off', fmtDisplay(dd) + ' at ' + pad2(dt) + ':00', 2, flightNote(df,'Flight')) +
-        rrRow('🏠','Return',   fmtDisplay(rd) + ' at ' + pad2(rt) + ':00', 5, flightNote(rf,'Flight'));
+        rrRow('✈️', 'Airport',        a.full + ' (' + a.code + ')', 1) +
+        rrRow('🚗', 'Dropping off car', fmtDisplay(dd) + ' at ' + pad2(dt) + ':00', 2, dropNote) +
+        rrRow('🏠', 'Collecting car',   fmtDisplay(rd) + ' at ' + pad2(rt) + ':00', 5, retNote);
 
     // Prefetch HX results page
     const url = buildSearchUrl();
