@@ -537,20 +537,23 @@ function normaliseFlights(raw, dateStr, mode) {
         .map(e => {
             const dep = e.departure || {};
             const arr = e.arrival   || {};
-            const [hStr, mStr] = (dep.time || '00:00').split(':');
             const terminal = mode === 'return' ? (arr.terminal || '') : (dep.terminal || '');
             const operatedBy = e.info?.is_codeshare && e.info?.codeshare_operator_reference
                 ? refToCarrier[e.info.codeshare_operator_reference] || ''
                 : '';
+            const timeStr  = mode === 'return' ? (arr.time || dep.time || '00:00') : (dep.time || '00:00');
+            const [tH, tM] = timeStr.split(':');
             return {
                 code:          e.flight?.code || '',
                 airline:       e.flight?.carrier?.name || e.flight?.carrier?.code || '',
                 dest:          arr.airport || arr.city || '',
                 destCountry:   arr.country || '',
                 destAirport:   arr.airport_iata || '',
+                origin:        dep.airport || dep.city || '',
+                originCountry: dep.country || '',
                 originAirport: dep.airport_iata || '',
-                hour:          parseInt(hStr, 10) || 0,
-                minute:        parseInt(mStr, 10) || 0,
+                hour:          parseInt(tH, 10) || 0,
+                minute:        parseInt(tM, 10) || 0,
                 terminal,
                 isCodeshare:   !!e.info?.is_codeshare,
                 operatedBy,
@@ -694,8 +697,10 @@ const Favourites = {
         if (!rec) return;
         // Store a lightweight reference (no _raw) to keep localStorage lean
         const slim = { code: flight.code, airline: flight.airline, dest: flight.dest,
-                       destAirport: flight.destAirport, hour: flight.hour, minute: flight.minute,
-                       terminal: flight.terminal, tailfin: flight.tailfin };
+                       destAirport: flight.destAirport, origin: flight.origin || '',
+                       originAirport: flight.originAirport || '', hour: flight.hour, minute: flight.minute,
+                       terminal: flight.terminal, tailfin: flight.tailfin,
+                       direction: flight._direction || 'outbound' };
         rec.flights = [slim, ...(rec.flights||[]).filter(f => f.code !== flight.code)].slice(0, 5);
         this.write(items);
     },
@@ -1054,9 +1059,11 @@ function renderFlightList(containerId, flights, type) {
         recents.push({ ...(match || selFlight), _isRecent: true });
     }
     if (state.airport) {
-        Favourites.flights(state.airport.code).forEach(f => {
-            if (!recentCodes.has(f.code)) { recentCodes.add(f.code); recents.push({ ...f, _isRecent: true }); }
-        });
+        Favourites.flights(state.airport.code)
+            .filter(f => !f.direction || f.direction === type)
+            .forEach(f => {
+                if (!recentCodes.has(f.code)) { recentCodes.add(f.code); recents.push({ ...f, _isRecent: true }); }
+            });
     }
 
     const day0 = flights.filter(f => !f._nextDay && !recentCodes.has(f.code));
@@ -1127,6 +1134,11 @@ function _flightRowsHtml(subset, allFlights, type) {
         const tailfinHtml = f.tailfin
             ? `<img class="fr-tail" src="${esc(f.tailfin)}" alt="${esc(f.airline)}" loading="lazy" onerror="this.style.display='none'">` : '';
 
+        const isReturn  = type === 'return';
+        const cityLabel = isReturn ? (f.origin || f.dest) : f.dest;
+        const noteCountry = isReturn ? '' : (f.destCountry || '');
+        const noteParts = [noteCountry, termLabel].filter(Boolean).map(esc).join(' · ');
+
         html += `<div class="flight-row${isSel ? ' selected' : ''}" role="option" aria-selected="${isSel}" tabindex="0"
                      data-idx="${rawIdx}"
                      onclick="pickFlight('${type}',${rawIdx})"
@@ -1135,8 +1147,8 @@ function _flightRowsHtml(subset, allFlights, type) {
                     <span class="fr-time">${pad2(f.hour)}:${pad2(f.minute)}</span>
                     <span class="fr-arrow" aria-hidden="true">→</span>
                     <span class="fr-dest">
-                        <div>${esc(f.dest)}</div>
-                        <div class="fr-note">${[f.destCountry, termLabel].filter(Boolean).map(esc).join(' · ')}${csNote}</div>
+                        <div>${esc(cityLabel)}</div>
+                        <div class="fr-note">${noteParts}${csNote}</div>
                     </span>
                     ${tailfinHtml}
                 </div>`;
@@ -1187,14 +1199,14 @@ function pickFlight(type, idx) {
     if (el) { el.classList.add('selected'); setTimeout(() => el.classList.add('confirming'), 80); }
 
     if (type === 'outbound') {
-        state.dropoffFlight = f;
+        state.dropoffFlight = { ...f, _direction: 'outbound' };
         track('parking-wizard-stage3-outbound-flight', f.code + ':' + f.dest);
-        Favourites.pushFlight(state.airport.code, f);
+        Favourites.pushFlight(state.airport.code, state.dropoffFlight);
         setTimeout(() => goToStep(4), 200);   // brief confirming flash then advance
     } else {
-        state.returnFlight = f;
+        state.returnFlight = { ...f, _direction: 'return' };
         track('parking-wizard-stage6-return-flight', f.code + ':' + f.dest);
-        Favourites.pushFlight(state.airport.code, f);
+        Favourites.pushFlight(state.airport.code, state.returnFlight);
         setTimeout(() => goToStep(7), 200);
     }
 }
