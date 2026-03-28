@@ -259,14 +259,11 @@
             text-transform: uppercase; color: var(--muted); background: var(--purple-l);
             border-bottom: 1px solid var(--border);
         }
-        .fr-term {
-            display: inline-block; margin-left: .35rem;
-            font-size: .65rem; font-weight: 700; padding: .1rem .3rem;
-            border-radius: 4px; background: var(--purple-l); color: var(--purple);
-            vertical-align: middle; border: 1px solid currentColor;
-        }
-        .fr-cs { font-size: .65rem; color: var(--muted); }
         .fr-codeshare { font-size: .65rem; color: var(--muted); font-style: italic; }
+        .fr-tail {
+            height: 44px; width: auto; flex-shrink: 0; object-fit: contain;
+            opacity: .92; margin-left: auto;
+        }
         .flight-no-results { padding: .75rem 1rem; }
         .fnr-msg { font-size: .85rem; color: var(--muted); margin-bottom: .625rem; }
         .fnr-opt {
@@ -362,47 +359,57 @@
         <div id="dropoffCalBody"></div>
     </section>
 
-    <!-- Step 3: Drop-off time + outbound flight -->
+    <!-- Step 3: Outbound flight -->
     <section class="step" id="step-3">
-        <h2 class="step-title">Parking from time</h2>
+        <h2 class="step-title">Your outbound flight</h2>
         <div class="flight-section">
-            <p class="sec-lbl">Your outbound flight <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.7rem;color:var(--muted)">(optional)</span></p>
+            <p class="sec-lbl">Find your flight <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.7rem;color:var(--muted)">(optional)</span></p>
             <input type="search" id="outboundFlightSearch" class="flight-search" placeholder="Search destination or flight number…" autocomplete="off" oninput="filterFlights('outboundFlightList','outbound')">
             <div class="flight-list" id="outboundFlightList" role="listbox"></div>
             <span class="skip-flight-link" tabindex="0"
                   onclick="skipFlight('outbound')"
                   onkeydown="if(event.key==='Enter')skipFlight('outbound')">Skip — I'll enter the time manually</span>
         </div>
+    </section>
+
+    <!-- Step 4: Drop-off time -->
+    <section class="step" id="step-4">
+        <h2 class="step-title">Parking from time</h2>
         <div class="flight-hint" id="outboundHint"></div>
         <p class="step-q">What time will you drop your car off?</p>
         <div class="time-grid" id="dropoffTimeGrid" role="listbox" aria-label="Drop-off time"></div>
     </section>
 
-    <!-- Step 4: Return date -->
-    <section class="step" id="step-4">
+    <!-- Step 5: Return date -->
+    <section class="step" id="step-5">
         <h2 class="step-title">Returning to collect car</h2>
         <div class="ctx-bar" id="returnCtx"></div>
         <div id="returnCalBody"></div>
     </section>
 
-    <!-- Step 5: Return time + return flight -->
-    <section class="step" id="step-5">
-        <h2 class="step-title">Returning to collect car time</h2>
-        <div class="flight-section">
-            <p class="sec-lbl">Your return flight <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.7rem;color:var(--muted)">(optional)</span></p>
+    <!-- Step 6: Return flight -->
+    <section class="step" id="step-6">
+        <h2 class="step-title">Your return flight</h2>
+        <div class="flight-section" id="returnFlightSection">
+            <p class="sec-lbl">Find your return flight <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.7rem;color:var(--muted)">(optional)</span></p>
             <input type="search" id="returnFlightSearch" class="flight-search" placeholder="Search destination or flight number…" autocomplete="off" oninput="filterFlights('returnFlightList','return')">
             <div class="flight-list" id="returnFlightList" role="listbox"></div>
             <span class="skip-flight-link" tabindex="0"
                   onclick="skipFlight('return')"
                   onkeydown="if(event.key==='Enter')skipFlight('return')">Skip — I'll enter the time manually</span>
         </div>
+    </section>
+
+    <!-- Step 7: Return time -->
+    <section class="step" id="step-7">
+        <h2 class="step-title">Car collection time</h2>
         <div class="flight-hint" id="returnHint"></div>
         <p class="step-q">What time will you collect your car?</p>
         <div class="time-grid" id="returnTimeGrid" role="listbox" aria-label="Return time"></div>
     </section>
 
-    <!-- Step 6: Review & search -->
-    <section class="step" id="step-6">
+    <!-- Step 8: Review & search -->
+    <section class="step" id="step-8">
         <h2 class="step-title">Search Summary</h2>
         <div id="durationCard"></div>
         <div id="reviewRows"></div>
@@ -537,6 +544,7 @@ function normaliseFlights(raw, dateStr, mode) {
                 terminal,
                 isCodeshare:   !!e.info?.is_codeshare,
                 operatedBy,
+                tailfin:       e.flight?.carrier?.tailfinImage || e.flight?.carrier?.tail_image || '',
                 departureDate: dateStr,
                 _raw:          e,
             };
@@ -598,7 +606,7 @@ function trackPage(stageNum, stageName) {
 function updateSummary() { /* no-op — strip removed */ }
 
 // ─── Navigation ────────────────────────────────────────────────────────────────
-const STEP_LABELS = ['','airport','dropoff-date','dropoff-time','return-date','return-time','search'];
+const STEP_LABELS = ['','airport','dropoff-date','dropoff-flight','dropoff-time','return-date','return-flight','return-time','search'];
 
 function goToStep(n, fromHistory) {
     document.getElementById('step-' + currentStep).classList.remove('active');
@@ -610,16 +618,17 @@ function goToStep(n, fromHistory) {
     const body = document.querySelector('#step-' + n + ' .step-body');
     if (body) body.scrollTop = 0;
 
-    // Show hero only on step 1
     const hero = document.getElementById('heroWrap');
     if (hero) hero.classList.toggle('hidden', n !== 1);
 
     if (n === 1) renderRecents();
     if (n === 2) setupDropoffDate();
-    if (n === 3) setupDropoffTime();
-    if (n === 4) setupReturnDate();
-    if (n === 5) setupReturnTime();
-    if (n === 6) buildReview();
+    if (n === 3) setupDropoffFlight();
+    if (n === 4) setupDropoffTime();
+    if (n === 5) setupReturnDate();
+    if (n === 6) setupReturnFlight();
+    if (n === 7) setupReturnTime();
+    if (n === 8) buildReview();
 
     updateSummary();
     trackPage(n, STEP_LABELS[n]);
@@ -668,13 +677,21 @@ const Favourites = {
         return this.read().map(r => r.airport);
     },
 
-    // ── flights (future) — keyed under airport ────────────────────
+    // ── flights — keyed under airport ─────────────────────────────
     pushFlight(airportCode, flight) {
         const items = this.read();
         const rec = items.find(r => r.airport.code === airportCode);
         if (!rec) return;
-        rec.flights = [flight, ...(rec.flights||[]).filter(f => f.number !== flight.number)].slice(0, 5);
+        // Store a lightweight reference (no _raw) to keep localStorage lean
+        const slim = { code: flight.code, airline: flight.airline, dest: flight.dest,
+                       destAirport: flight.destAirport, hour: flight.hour, minute: flight.minute,
+                       terminal: flight.terminal, tailfin: flight.tailfin };
+        rec.flights = [slim, ...(rec.flights||[]).filter(f => f.code !== flight.code)].slice(0, 5);
         this.write(items);
+    },
+    flights(airportCode) {
+        const rec = this.read().find(r => r.airport.code === airportCode);
+        return rec?.flights || [];
     },
 
     // ── destinations (future) ─────────────────────────────────────
@@ -911,19 +928,12 @@ function pickDropoffDate(dateStr) {
     goToStep(3);
 }
 
-// ─── Step 3: Drop-off time ────────────────────────────────────────────────────
-function setupDropoffTime() {
-    renderTimePicker('dropoffTimeGrid', state.dropoffTime, state.dropoffFlight ? Math.max(0, state.dropoffFlight.hour - 3) : state.dropoffTime, onDropoffTime);
-    document.getElementById('outboundHint').classList.remove('visible');
-
+// ─── Step 3: Outbound flight ──────────────────────────────────────────────────
+function setupDropoffFlight() {
     if (!state.airport || !state.dropoffDate) return;
-
-    // Show loading skeleton immediately
     const container = document.getElementById('outboundFlightList');
     container.innerHTML = '<div class="flight-loading">Loading flights…</div>';
     document.getElementById('outboundFlightSearch').style.display = 'none';
-
-    // Fetch parking day + next day concurrently (customer may park overnight before flying)
     const d0 = state.dropoffDate;
     const d1 = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + 1);
     Promise.all([fetchFlights(state.airport.code, d0), fetchFlights(state.airport.code, d1)])
@@ -933,15 +943,28 @@ function setupDropoffTime() {
         });
 }
 
-function onDropoffTime(h) {
-    state.dropoffTime = h;
-    const sug = state.dropoffFlight ? Math.max(0, state.dropoffFlight.hour - 3) : null;
-    renderTimePicker('dropoffTimeGrid', h, sug, onDropoffTime);
-    track('parking-wizard-stage3-dropoff-time', pad2(h) + ':00');
-    goToStep(4);
+// ─── Step 4: Drop-off time ────────────────────────────────────────────────────
+function setupDropoffTime() {
+    const hint = document.getElementById('outboundHint');
+    if (state.dropoffFlight) {
+        const f = state.dropoffFlight;
+        const termNote = f.terminal ? ' · Terminal ' + f.terminal : '';
+        hint.textContent = '✈ ' + f.code + ' to ' + f.dest + ' at ' + pad2(f.hour) + ':' + pad2(f.minute) + termNote;
+        hint.classList.add('visible');
+    } else {
+        hint.classList.remove('visible');
+    }
+    renderTimePicker('dropoffTimeGrid', state.dropoffTime, state.dropoffFlight ? Math.max(0, state.dropoffFlight.hour - 3) : state.dropoffTime, onDropoffTime);
 }
 
-// ─── Step 4: Return date ──────────────────────────────────────────────────────
+function onDropoffTime(h) {
+    state.dropoffTime = h;
+    renderTimePicker('dropoffTimeGrid', h, state.dropoffFlight ? Math.max(0, state.dropoffFlight.hour - 3) : null, onDropoffTime);
+    track('parking-wizard-stage4-dropoff-time', pad2(h) + ':00');
+    goToStep(5);
+}
+
+// ─── Step 5: Return date ──────────────────────────────────────────────────────
 function setupReturnDate() {
     const ctx = document.getElementById('returnCtx');
     if (state.dropoffDate && state.dropoffTime !== null) {
@@ -960,44 +983,46 @@ function pickReturnDate(dateStr) {
     const d = parseISO(dateStr);
     state.returnDate   = d;
     state.returnFlight = null;
-    track('parking-wizard-stage4-return-date', dateStr);
+    track('parking-wizard-stage5-return-date', dateStr);
     const minReturn = state.dropoffDate
         ? new Date(state.dropoffDate.getFullYear(), state.dropoffDate.getMonth(), state.dropoffDate.getDate() + 1)
         : today();
     renderCalendar('returnCalBody', minReturn, 100, d, 'pickReturnDate');
-    goToStep(5);
+    goToStep(6);
 }
 
-// ─── Step 5: Return time ──────────────────────────────────────────────────────
-function setupReturnTime() {
-    renderTimePicker('returnTimeGrid', state.returnTime, state.returnFlight ? Math.min(23, state.returnFlight.hour + 2) : state.returnTime, onReturnTime);
-    document.getElementById('returnHint').classList.remove('visible');
-
-    // Only show return flight picker if the customer selected an outbound flight —
-    // without it we don't know which airport they're flying back from.
-    const flightSection = document.querySelector('#step-5 .flight-section');
+// ─── Step 6: Return flight ────────────────────────────────────────────────────
+function setupReturnFlight() {
+    // Only show if we know where the customer is flying back from
     const outDest = state.dropoffFlight?.destAirport;
+    if (!outDest) { goToStep(7); return; }   // skip straight to time
 
-    if (!outDest) {
-        flightSection.style.display = 'none';
-        return;
-    }
-
-    flightSection.style.display = '';
     const container = document.getElementById('returnFlightList');
     container.innerHTML = '<div class="flight-loading">Loading flights…</div>';
     document.getElementById('returnFlightSearch').style.display = 'none';
-
     fetchFlights(outDest, state.returnDate, { destination: state.airport.code })
         .then(flights => renderFlightList('returnFlightList', flights, 'return'));
 }
 
+// ─── Step 7: Return time ──────────────────────────────────────────────────────
+function setupReturnTime() {
+    const hint = document.getElementById('returnHint');
+    if (state.returnFlight) {
+        const f = state.returnFlight;
+        const termNote = f.terminal ? ' · Terminal ' + f.terminal : '';
+        hint.textContent = '✈ ' + f.code + ' lands ' + pad2(f.hour) + ':' + pad2(f.minute) + termNote;
+        hint.classList.add('visible');
+    } else {
+        hint.classList.remove('visible');
+    }
+    renderTimePicker('returnTimeGrid', state.returnTime, state.returnFlight ? Math.min(23, state.returnFlight.hour + 2) : state.returnTime, onReturnTime);
+}
+
 function onReturnTime(h) {
     state.returnTime = h;
-    const sug = state.returnFlight ? Math.min(23, state.returnFlight.hour + 2) : null;
-    renderTimePicker('returnTimeGrid', h, sug, onReturnTime);
-    track('parking-wizard-stage5-return-time', pad2(h) + ':00');
-    goToStep(6);
+    renderTimePicker('returnTimeGrid', h, state.returnFlight ? Math.min(23, state.returnFlight.hour + 2) : null, onReturnTime);
+    track('parking-wizard-stage7-return-time', pad2(h) + ':00');
+    goToStep(8);
 }
 
 // ─── Flight picker ─────────────────────────────────────────────────────────────
@@ -1007,17 +1032,38 @@ function _searchInputId(containerId) {
 
 function renderFlightList(containerId, flights, type) {
     const container = document.getElementById(containerId);
-    container._flights = flights;
 
-    // Show / hide search input
+    // Pin the currently selected flight + any localStorage recents to the top
+    const selFlight    = type === 'outbound' ? state.dropoffFlight : state.returnFlight;
+    const recentCodes  = new Set();
+    const recents      = [];
+
+    if (selFlight) {
+        recentCodes.add(selFlight.code);
+        // Find the full flight object from the new list (has tailfin etc)
+        const match = flights.find(f => f.code === selFlight.code);
+        recents.push({ ...(match || selFlight), _isPinned: true });
+    }
+
+    if (state.airport) {
+        Favourites.flights(state.airport.code).forEach(f => {
+            if (!recentCodes.has(f.code)) {
+                recentCodes.add(f.code);
+                recents.push({ ...f, _isRecent: true });
+            }
+        });
+    }
+
+    // Build the full list: recents section (if any) then the rest
+    const rest = flights.filter(f => !recentCodes.has(f.code));
+    const combined = recents.length ? [...recents.map(f => ({ ...f, _recentSep: recents.indexOf(f) === 0 })), ...rest] : flights;
+    container._flights = combined;
+
     const inp = document.getElementById(_searchInputId(containerId));
     if (inp) { inp.value = ''; inp.style.display = flights.length ? '' : 'none'; }
 
-    if (!flights.length) {
-        _renderNoResults(container, '');
-        return;
-    }
-    _renderFlightRows(container, flights, type);
+    if (!combined.length) { _renderNoResults(container, ''); return; }
+    _renderFlightRows(container, combined, type);
 }
 
 function _renderNoResults(container, query) {
@@ -1037,29 +1083,40 @@ function _renderNoResults(container, query) {
 
 // Renders a subset of flights (may be filtered). Always indexes into container._flights.
 function _renderFlightRows(container, subset, type) {
-    const all      = container._flights || [];
+    const all       = container._flights || [];
     const selFlight = type === 'outbound' ? state.dropoffFlight : state.returnFlight;
     let html = '';
+    let shownRecentSep = false;
     let lastDate = null;
 
     for (let i = 0; i < subset.length; i++) {
         const f      = subset[i];
         const rawIdx = all.indexOf(f);
-        const isSel  = selFlight && selFlight.code === f.code && selFlight.departureDate === f.departureDate;
+        const isSel  = selFlight && selFlight.code === f.code;
 
-        // Day separator when the list spans two dates (overnight parking)
-        if (f._nextDay && f.departureDate !== lastDate) {
+        // Recents separator before the first recent entry
+        if ((f._isPinned || f._isRecent) && !shownRecentSep) {
+            html += `<div class="flight-day-sep">Recently selected</div>`;
+            shownRecentSep = true;
+        }
+        // Day separator when spanning two dates (overnight parking)
+        if (!f._isPinned && !f._isRecent && f._nextDay && f.departureDate !== lastDate) {
             html += `<div class="flight-day-sep">Next day — ${esc(fmtDisplay(parseISO(f.departureDate)))}</div>`;
         }
-        lastDate = f.departureDate;
+        if (!f._isPinned && !f._isRecent) lastDate = f.departureDate;
 
         const note = type === 'outbound'
             ? 'Drop off by ' + pad2(Math.max(0, f.hour - 3)) + ':00'
             : 'Collect at '  + pad2(Math.min(23, f.hour + 2)) + ':00';
-        const termBadge = f.terminal
-            ? `<span class="fr-term">T${esc(f.terminal)}</span>` : '';
-        const csNote = f.isCodeshare
-            ? `<span class="fr-codeshare"> · operated by ${esc(f.operatedBy || 'another carrier')}</span>` : '';
+        // Terminal belongs to the parking airport (departure or arrival), not the destination
+        const termLabel = f.terminal
+            ? (/^\d+$/.test(f.terminal) ? 'T' + f.terminal : 'Terminal ' + f.terminal)
+            : '';
+        const termNote = termLabel ? ` · ${termLabel}` : '';
+        const csNote   = f.isCodeshare
+            ? ` · operated by ${esc(f.operatedBy || 'another carrier')}` : '';
+        const tailfinHtml = f.tailfin
+            ? `<img class="fr-tail" src="${esc(f.tailfin)}" alt="${esc(f.airline)}" loading="lazy" onerror="this.style.display='none'">` : '';
 
         html += `<div class="flight-row${isSel ? ' selected' : ''}" role="option" aria-selected="${isSel}" tabindex="0"
                      data-idx="${rawIdx}"
@@ -1069,9 +1126,10 @@ function _renderFlightRows(container, subset, type) {
                     <span class="fr-time">${pad2(f.hour)}:${pad2(f.minute)}</span>
                     <span class="fr-arrow" aria-hidden="true">→</span>
                     <span class="fr-dest">
-                        <div>${esc(f.dest)}${termBadge}</div>
-                        <div class="fr-note">${note}${csNote}</div>
+                        <div>${esc(f.dest)}</div>
+                        <div class="fr-note">${note}${termNote}${csNote}</div>
                     </span>
+                    ${tailfinHtml}
                 </div>`;
     }
     container.innerHTML = html;
@@ -1112,39 +1170,28 @@ function pickFlight(type, idx) {
     const el = container.querySelector('.flight-row[data-idx="' + idx + '"]');
     if (el) { el.classList.add('selected'); setTimeout(() => el.classList.add('confirming'), 80); }
 
-    const termNote = f.terminal ? ' · Terminal ' + f.terminal : '';
     if (type === 'outbound') {
         state.dropoffFlight = f;
-        renderTimePicker('dropoffTimeGrid', state.dropoffTime, Math.max(0, f.hour - 3), onDropoffTime);
-        const hint = document.getElementById(hintId);
-        hint.textContent = '✈ ' + f.code + ' at ' + pad2(f.hour) + ':' + pad2(f.minute) + termNote + ' — suggested drop-off time highlighted below';
-        hint.classList.add('visible');
         track('parking-wizard-stage3-outbound-flight', f.code + ':' + f.dest);
         Favourites.pushFlight(state.airport.code, f);
+        setTimeout(() => goToStep(4), 200);   // brief confirming flash then advance
     } else {
         state.returnFlight = f;
-        renderTimePicker('returnTimeGrid', state.returnTime, Math.min(23, f.hour + 2), onReturnTime);
-        const hint = document.getElementById(hintId);
-        hint.textContent = '✈ ' + f.code + ' lands ~' + pad2(f.hour) + ':' + pad2(f.minute) + termNote + ' — suggested collection time highlighted below';
-        hint.classList.add('visible');
-        track('parking-wizard-stage5-return-flight', f.code + ':' + f.dest);
+        track('parking-wizard-stage6-return-flight', f.code + ':' + f.dest);
         Favourites.pushFlight(state.airport.code, f);
+        setTimeout(() => goToStep(7), 200);
     }
 }
 
 function skipFlight(type) {
-    const cid = type === 'outbound' ? 'outboundFlightList' : 'returnFlightList';
-    document.querySelectorAll('#' + cid + ' .flight-row').forEach(el => el.classList.remove('selected','confirming'));
     if (type === 'outbound') {
         state.dropoffFlight = null;
-        renderTimePicker('dropoffTimeGrid', state.dropoffTime, null, onDropoffTime);
-        document.getElementById('outboundHint').classList.remove('visible');
         track('parking-wizard-stage3-outbound-flight-skip', '');
+        goToStep(4);
     } else {
         state.returnFlight = null;
-        renderTimePicker('returnTimeGrid', state.returnTime, null, onReturnTime);
-        document.getElementById('returnHint').classList.remove('visible');
-        track('parking-wizard-stage5-return-flight-skip', '');
+        track('parking-wizard-stage6-return-flight-skip', '');
+        goToStep(7);
     }
 }
 
@@ -1184,7 +1231,7 @@ function buildReview() {
     document.getElementById('reviewRows').innerHTML =
         rrRow('✈️','Airport',  a.full + ' (' + a.code + ')', 1) +
         rrRow('🚗','Drop-off', fmtDisplay(dd) + ' at ' + pad2(dt) + ':00', 2, flightNote(df,'Flight')) +
-        rrRow('🏠','Return',   fmtDisplay(rd) + ' at ' + pad2(rt) + ':00', 4, flightNote(rf,'Flight'));
+        rrRow('🏠','Return',   fmtDisplay(rd) + ' at ' + pad2(rt) + ':00', 5, flightNote(rf,'Flight'));
 
     // Prefetch HX results page
     const url = buildSearchUrl();
@@ -1196,7 +1243,7 @@ function buildReview() {
     loading.classList.add('on'); btn.style.display = 'none';
     setTimeout(() => { loading.classList.remove('on'); btn.style.display = ''; }, 1100);
 
-    track('parking-wizard-stage6-search-summary', a.code);
+    track('parking-wizard-stage8-search-summary', a.code);
 }
 
 function rrRow(icon, label, value, step, extra) {
