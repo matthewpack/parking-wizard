@@ -1027,7 +1027,7 @@ function setupReturnFlight() {
 
     // Context header: origin city → parking airport
     const ctx = document.getElementById('returnFlightCtx');
-    ctx.innerHTML = esc(state.dropoffFlight?.dest || outDest) + ' &rarr; ' + esc(state.airport?.name || state.airport?.code || '');
+    ctx.innerHTML = esc(state.dropoffFlight?.dest || outDest) + ' &rarr; ' + esc(state.airport?.full || state.airport?.name || state.airport?.code || '');
 
     // Date strip centred on return date
     _returnViewDate = state.returnDate;
@@ -1092,22 +1092,25 @@ function _searchInputId(containerId) {
 function renderFlightList(containerId, flights, type) {
     const container = document.getElementById(containerId);
 
-    // Collect recents: currently selected flight + localStorage history
-    const selFlight   = type === 'outbound' ? state.dropoffFlight : state.returnFlight;
+    // Return flights: list is short, no recents needed — just show the flights
+    // Outbound flights: surface recents from current session + localStorage
     const recentCodes = new Set();
     const recents     = [];
 
-    if (selFlight) {
-        recentCodes.add(selFlight.code);
-        const match = flights.find(f => f.code === selFlight.code);
-        recents.push({ ...(match || selFlight), _isRecent: true });
-    }
-    if (state.airport) {
-        Favourites.flights(state.airport.code)
-            .filter(f => !f.direction || f.direction === type)
-            .forEach(f => {
-                if (!recentCodes.has(f.code)) { recentCodes.add(f.code); recents.push({ ...f, _isRecent: true }); }
-            });
+    if (type === 'outbound') {
+        const selFlight = state.dropoffFlight;
+        if (selFlight) {
+            recentCodes.add(selFlight.code);
+            const match = flights.find(f => f.code === selFlight.code);
+            recents.push({ ...(match || selFlight), _isRecent: true });
+        }
+        if (state.airport) {
+            Favourites.flights(state.airport.code)
+                .filter(f => !f.direction || f.direction === 'outbound')
+                .forEach(f => {
+                    if (!recentCodes.has(f.code)) { recentCodes.add(f.code); recents.push({ ...f, _isRecent: true }); }
+                });
+        }
     }
 
     const day0 = flights.filter(f => !f._nextDay && !recentCodes.has(f.code));
