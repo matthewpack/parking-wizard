@@ -279,6 +279,13 @@
         .flt-date-btn.active { border-color: var(--purple); color: var(--purple); background: var(--purple-l); font-weight: 700; }
         .flt-date-btn:hover:not(.active) { background: var(--purple-l); }
         .flt-ctx { font-size: .8rem; color: var(--muted); margin-bottom: .625rem; text-align: center; }
+        /* ── Return flight rows — two-leg layout ── */
+        .fr-legs { flex: 1; display: flex; flex-direction: column; gap: .18rem; }
+        .fr-leg  { display: flex; align-items: baseline; gap: .45rem; }
+        .fr-leg-icon { font-size: .7rem; color: var(--muted); width: .9rem; flex-shrink: 0; text-align: center; }
+        .fr-leg-time { font-weight: 800; color: var(--purple); font-size: 1.15rem; width: 3rem; flex-shrink: 0; }
+        .fr-leg-time.arr { color: var(--text); font-size: .95rem; font-weight: 700; }
+        .fr-leg-ap { font-size: .68rem; font-weight: 700; color: var(--muted); letter-spacing: .03em; }
         .fr-codeshare { font-size: .65rem; color: var(--muted); font-style: italic; }
         .fr-tail {
             height: 44px; width: auto; flex-shrink: 0; object-fit: contain;
@@ -1181,26 +1188,50 @@ function _flightRowsHtml(subset, allFlights, type) {
         const tailfinHtml = f.tailfin
             ? `<img class="fr-tail" src="${esc(f.tailfin)}" alt="${esc(f.airline)}" loading="lazy" onerror="this.style.display='none'">` : '';
 
-        const isReturn  = type === 'return';
-        const cityLabel = isReturn ? (f.origin || f.dest) : f.dest;
-        const noteCountry = isReturn ? '' : (f.destCountry || '');
-        const depNote = isReturn && f.depHour !== undefined
-            ? `departs ${pad2(f.depHour)}:${pad2(f.depMinute)}` : '';
-        const noteParts = [depNote, noteCountry, termLabel].filter(Boolean).map(esc).join(' · ');
+        const isReturn = type === 'return';
 
-        html += `<div class="flight-row${isSel ? ' selected' : ''}" role="option" aria-selected="${isSel}" tabindex="0"
-                     data-idx="${rawIdx}"
-                     onclick="pickFlight('${type}',${rawIdx})"
-                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickFlight('${type}',${rawIdx});}">
-                    <span class="fr-code">${esc(f.code)}</span>
-                    <span class="fr-time">${pad2(f.hour)}:${pad2(f.minute)}</span>
-                    <span class="fr-arrow" aria-hidden="true">→</span>
-                    <span class="fr-dest">
-                        <div>${esc(cityLabel)}</div>
-                        <div class="fr-note">${noteParts}${csNote}</div>
-                    </span>
-                    ${tailfinHtml}
-                </div>`;
+        if (isReturn) {
+            // Two-leg layout: departure time big, then dep/arr airport codes + arrival time
+            const originCode  = f.originAirport || '???';
+            const arrCode     = state.airport?.code || '';
+            const airlineNote = [f.airline, termLabel].filter(Boolean).map(esc).join(' · ') + csNote;
+            html += `<div class="flight-row${isSel ? ' selected' : ''}" role="option" aria-selected="${isSel}" tabindex="0"
+                         data-idx="${rawIdx}"
+                         onclick="pickFlight('${type}',${rawIdx})"
+                         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickFlight('${type}',${rawIdx});}">
+                        <span class="fr-code">${esc(f.code)}</span>
+                        <span class="fr-legs">
+                            <div class="fr-leg">
+                                <span class="fr-leg-icon">↗</span>
+                                <span class="fr-leg-time">${pad2(f.depHour)}:${pad2(f.depMinute)}</span>
+                                <span class="fr-leg-ap">${esc(originCode)}</span>
+                            </div>
+                            <div class="fr-leg">
+                                <span class="fr-leg-icon">↙</span>
+                                <span class="fr-leg-time arr">${pad2(f.hour)}:${pad2(f.minute)}</span>
+                                <span class="fr-leg-ap">${esc(arrCode)}</span>
+                            </div>
+                            <div class="fr-note">${airlineNote}</div>
+                        </span>
+                        ${tailfinHtml}
+                    </div>`;
+        } else {
+            const noteCountry = f.destCountry || '';
+            const noteParts   = [noteCountry, termLabel].filter(Boolean).map(esc).join(' · ');
+            html += `<div class="flight-row${isSel ? ' selected' : ''}" role="option" aria-selected="${isSel}" tabindex="0"
+                         data-idx="${rawIdx}"
+                         onclick="pickFlight('${type}',${rawIdx})"
+                         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickFlight('${type}',${rawIdx});}">
+                        <span class="fr-code">${esc(f.code)}</span>
+                        <span class="fr-time">${pad2(f.hour)}:${pad2(f.minute)}</span>
+                        <span class="fr-arrow" aria-hidden="true">→</span>
+                        <span class="fr-dest">
+                            <div>${esc(f.dest)}</div>
+                            <div class="fr-note">${noteParts}${csNote}</div>
+                        </span>
+                        ${tailfinHtml}
+                    </div>`;
+        }
     }
     return html;
 }
