@@ -301,8 +301,8 @@
             <div class="recent-chips" id="recentChips"></div>
         </div>
 
-        <p class="sec-lbl">Popular airports</p>
-        <div class="airport-grid" id="popularGrid" role="list" aria-label="Popular airports"></div>
+        <p class="sec-lbl" id="nearestLbl">Nearest airports</p>
+        <div class="airport-grid" id="popularGrid" role="list" aria-label="Nearest airports"></div>
         <p class="sec-lbl" style="margin-top:.5rem">All airports</p>
         <div class="airport-list" id="allList" role="list" aria-label="All airports"></div>
     </section>
@@ -991,8 +991,8 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    renderPopular(POPULAR);
-    renderAllList(OTHERS);
+    // Default render sorted from UK centre — IP/GPS will refine immediately
+    applyLocation(52.5, -1.5, 'default');
     renderRecents();
 
     // Auto-location on load
