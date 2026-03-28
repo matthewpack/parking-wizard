@@ -287,6 +287,7 @@
         .fr-leg-time.arr { color: var(--text); font-size: .95rem; font-weight: 700; }
         .fr-leg-ap   { font-size: .68rem; font-weight: 700; color: var(--muted); letter-spacing: .03em; }
         .fr-leg-date { font-size: .68rem; color: var(--muted); }
+        .fr-leg-term { font-size: .68rem; color: var(--muted); font-style: italic; }
         .fr-codeshare { font-size: .65rem; color: var(--muted); font-style: italic; }
         .fr-tail {
             height: 44px; width: auto; flex-shrink: 0; object-fit: contain;
@@ -1211,7 +1212,7 @@ function _flightRowsHtml(subset, allFlights, type) {
             const arrCode     = state.airport?.code || '';
             const depDateStr  = f.departureDate ? fmtShort(parseISO(f.departureDate)) : '';
             const arrDateStr  = f.arrivalDate   ? fmtShort(parseISO(f.arrivalDate))   : '';
-            const airlineNote = [f.airline, termLabel].filter(Boolean).map(esc).join(' · ') + csNote;
+            const airlineNote = esc(f.airline) + csNote;
             html += `<div class="flight-row${isSel ? ' selected' : ''}" role="option" aria-selected="${isSel}" tabindex="0"
                          data-idx="${rawIdx}"
                          onclick="pickFlight('${type}',${rawIdx})"
@@ -1228,7 +1229,7 @@ function _flightRowsHtml(subset, allFlights, type) {
                                 <span class="fr-leg-icon">↙</span>
                                 <span class="fr-leg-time arr">${pad2(f.hour)}:${pad2(f.minute)}</span>
                                 <span class="fr-leg-ap">${esc(arrCode)}</span>
-                                <span class="fr-leg-date">${esc(arrDateStr)}</span>
+                                <span class="fr-leg-date">${esc(arrDateStr)}</span>${termLabel ? `<span class="fr-leg-term">${esc(termLabel)}</span>` : ''}
                             </div>
                             <div class="fr-note">${airlineNote}</div>
                         </span>
