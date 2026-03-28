@@ -1105,15 +1105,12 @@ function _renderFlightRows(container, subset, type) {
         }
         if (!f._isPinned && !f._isRecent) lastDate = f.departureDate;
 
-        const note = type === 'outbound'
-            ? 'Drop off by ' + pad2(Math.max(0, f.hour - 3)) + ':00'
-            : 'Collect at '  + pad2(Math.min(23, f.hour + 2)) + ':00';
-        // Terminal belongs to the parking airport (departure or arrival), not the destination
+        // Human-readable terminal at the parking airport (not the destination)
+        const TERM_NAMES = { N:'North Terminal', S:'South Terminal', T:'Tunnel Terminal' };
         const termLabel = f.terminal
-            ? (/^\d+$/.test(f.terminal) ? 'T' + f.terminal : 'Terminal ' + f.terminal)
+            ? (TERM_NAMES[f.terminal] || 'Terminal ' + f.terminal)
             : '';
-        const termNote = termLabel ? ` · ${termLabel}` : '';
-        const csNote   = f.isCodeshare
+        const csNote = f.isCodeshare
             ? ` · operated by ${esc(f.operatedBy || 'another carrier')}` : '';
         const tailfinHtml = f.tailfin
             ? `<img class="fr-tail" src="${esc(f.tailfin)}" alt="${esc(f.airline)}" loading="lazy" onerror="this.style.display='none'">` : '';
@@ -1127,7 +1124,7 @@ function _renderFlightRows(container, subset, type) {
                     <span class="fr-arrow" aria-hidden="true">→</span>
                     <span class="fr-dest">
                         <div>${esc(f.dest)}</div>
-                        <div class="fr-note">${note}${termNote}${csNote}</div>
+                        <div class="fr-note">${termLabel}${csNote}</div>
                     </span>
                     ${tailfinHtml}
                 </div>`;
