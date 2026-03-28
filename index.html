@@ -268,6 +268,17 @@
             background: var(--purple-l);
         }
         .flt-next-day-row:hover { background: #e9e1f7; }
+        /* ── Flight date strip ── */
+        .flt-date-strip { display: flex; gap: .5rem; margin-bottom: .75rem; }
+        .flt-date-btn {
+            flex: 1; padding: .55rem .25rem; border: 1.5px solid var(--border);
+            border-radius: 8px; font-size: .73rem; font-weight: 600; text-align: center;
+            cursor: pointer; background: #fff; color: var(--muted); line-height: 1.3;
+            font-family: inherit;
+        }
+        .flt-date-btn.active { border-color: var(--purple); color: var(--purple); background: var(--purple-l); font-weight: 700; }
+        .flt-date-btn:hover:not(.active) { background: var(--purple-l); }
+        .flt-ctx { font-size: .8rem; color: var(--muted); margin-bottom: .625rem; text-align: center; }
         .fr-codeshare { font-size: .65rem; color: var(--muted); font-style: italic; }
         .fr-tail {
             height: 44px; width: auto; flex-shrink: 0; object-fit: contain;
@@ -400,8 +411,9 @@
     <section class="step" id="step-6">
         <h2 class="step-title">Your return flight</h2>
         <div class="flight-section" id="returnFlightSection">
-            <p class="sec-lbl">Find your return flight <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.7rem;color:var(--muted)">(optional)</span></p>
-            <input type="search" id="returnFlightSearch" class="flight-search" placeholder="Search destination or flight number…" autocomplete="off" oninput="filterFlights('returnFlightList','return')">
+            <p class="flt-ctx" id="returnFlightCtx"></p>
+            <div class="flt-date-strip" id="returnDateStrip"></div>
+            <input type="search" id="returnFlightSearch" class="flight-search" placeholder="Search flight number…" autocomplete="off" oninput="filterFlights('returnFlightList','return')">
             <div class="flight-list" id="returnFlightList" role="listbox"></div>
             <span class="skip-flight-link" tabindex="0"
                   onclick="skipFlight('return')"
@@ -552,6 +564,8 @@ function normaliseFlights(raw, dateStr, mode) {
                 origin:        dep.airport || dep.city || '',
                 originCountry: dep.country || '',
                 originAirport: dep.airport_iata || '',
+                depHour:       parseInt((dep.time || '00:00').split(':')[0], 10) || 0,
+                depMinute:     parseInt((dep.time || '00:00').split(':')[1], 10) || 0,
                 hour:          parseInt(tH, 10) || 0,
                 minute:        parseInt(tM, 10) || 0,
                 terminal,
@@ -1008,14 +1022,44 @@ function pickReturnDate(dateStr) {
 
 // ─── Step 6: Return flight ────────────────────────────────────────────────────
 function setupReturnFlight() {
-    // Only show if we know where the customer is flying back from
     const outDest = state.dropoffFlight?.destAirport;
     if (!outDest) { goToStep(7); return; }   // skip straight to time
 
+    // Context header: origin city → parking airport
+    const ctx = document.getElementById('returnFlightCtx');
+    ctx.innerHTML = esc(state.dropoffFlight?.dest || outDest) + ' &rarr; ' + esc(state.airport?.name || state.airport?.code || '');
+
+    // Date strip centred on return date
+    _returnViewDate = state.returnDate;
+    _renderReturnDateStrip();
+
+    _loadReturnFlights(outDest, _returnViewDate);
+}
+
+let _returnViewDate = null;
+
+function _renderReturnDateStrip() {
+    const strip = document.getElementById('returnDateStrip');
+    const base  = state.returnDate;
+    strip.innerHTML = [-1, 0, 1].map(offset => {
+        const d  = new Date(base.getFullYear(), base.getMonth(), base.getDate() + offset);
+        const ds = fmtISO(d);
+        const active = fmtISO(_returnViewDate) === ds;
+        return `<button class="flt-date-btn${active ? ' active' : ''}" onclick="switchReturnDate('${ds}')">${fmtShort(d)}</button>`;
+    }).join('');
+}
+
+function switchReturnDate(dateStr) {
+    _returnViewDate = parseISO(dateStr);
+    _renderReturnDateStrip();
+    _loadReturnFlights(state.dropoffFlight?.destAirport, _returnViewDate);
+}
+
+function _loadReturnFlights(outDest, date) {
     const container = document.getElementById('returnFlightList');
     container.innerHTML = '<div class="flight-loading">Loading flights…</div>';
     document.getElementById('returnFlightSearch').style.display = 'none';
-    fetchFlights(outDest, state.returnDate, { destination: state.airport.code })
+    fetchFlights(outDest, date, { destination: state.airport.code })
         .then(flights => renderFlightList('returnFlightList', flights, 'return'));
 }
 
@@ -1137,7 +1181,9 @@ function _flightRowsHtml(subset, allFlights, type) {
         const isReturn  = type === 'return';
         const cityLabel = isReturn ? (f.origin || f.dest) : f.dest;
         const noteCountry = isReturn ? '' : (f.destCountry || '');
-        const noteParts = [noteCountry, termLabel].filter(Boolean).map(esc).join(' · ');
+        const depNote = isReturn && f.depHour !== undefined
+            ? `departs ${pad2(f.depHour)}:${pad2(f.depMinute)}` : '';
+        const noteParts = [depNote, noteCountry, termLabel].filter(Boolean).map(esc).join(' · ');
 
         html += `<div class="flight-row${isSel ? ' selected' : ''}" role="option" aria-selected="${isSel}" tabindex="0"
                      data-idx="${rawIdx}"
