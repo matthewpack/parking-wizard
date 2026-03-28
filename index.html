@@ -254,13 +254,20 @@
             padding: 1.25rem; text-align: center; color: var(--muted);
             font-size: .85rem;
         }
-        .flt-date-hdr { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: .75rem 0 .3rem; }
-        .flt-date-hdr:first-child { margin-top: 0; }
-        .fly-next-day-link {
-            display: block; text-align: center; font-size: .8rem; color: var(--purple);
-            padding: .625rem .5rem; cursor: pointer; text-decoration: none;
+        /* Section headers inside the single flight-list box */
+        .flt-sec-hdr {
+            padding: .3rem 1rem; font-size: .65rem; font-weight: 700; letter-spacing: .05em;
+            text-transform: uppercase; color: var(--muted); background: #f7f6fb;
+            border-bottom: 1px solid var(--border);
         }
-        .fly-next-day-link:hover { text-decoration: underline; }
+        .flt-sec-hdr:not(:first-child) { border-top: 1px solid var(--border); }
+        /* "I fly the following day" as an inline row inside the box */
+        .flt-next-day-row {
+            display: block; padding: .6rem 1rem; font-size: .8rem; color: var(--purple);
+            text-align: center; text-decoration: none; border-bottom: 1px solid var(--border);
+            background: var(--purple-l);
+        }
+        .flt-next-day-row:hover { background: #e9e1f7; }
         .fr-codeshare { font-size: .65rem; color: var(--muted); font-style: italic; }
         .fr-tail {
             height: 44px; width: auto; flex-shrink: 0; object-fit: contain;
@@ -1067,28 +1074,27 @@ function renderFlightList(containerId, flights, type) {
 
 function _renderFlightStructure(container, recents, day0, day1, type) {
     const all = container._flights;
-    let html  = '';
+    let html  = '<div class="flight-list">';
 
     if (recents.length) {
-        html += '<p class="sec-lbl flt-date-hdr">Recently selected</p>';
-        html += '<div class="flight-list">' + _flightRowsHtml(recents, all, type) + '</div>';
+        html += '<div class="flt-sec-hdr">Recently selected</div>';
+        html += _flightRowsHtml(recents, all, type);
     }
 
     if (day0.length) {
         const label = day0[0].departureDate ? fmtDisplay(parseISO(day0[0].departureDate)) : '';
-        if (label) html += `<p class="sec-lbl flt-date-hdr">${esc(label)}</p>`;
-        html += '<div class="flight-list">' + _flightRowsHtml(day0, all, type) + '</div>';
+        if (label) html += `<div class="flt-sec-hdr">${esc(label)}</div>`;
+        html += _flightRowsHtml(day0, all, type);
     }
 
     if (day1.length) {
         const label = day1[0].departureDate ? fmtDisplay(parseISO(day1[0].departureDate)) : '';
-        html += `<a class="fly-next-day-link" href="#${container.id}NextDay">I fly on the following day ↓</a>`;
-        html += `<div id="${container.id}NextDay">`;
-        if (label) html += `<p class="sec-lbl flt-date-hdr">${esc(label)}</p>`;
-        html += '<div class="flight-list">' + _flightRowsHtml(day1, all, type) + '</div>';
-        html += '</div>';
+        html += `<a class="flt-next-day-row" href="#${container.id}NextDay">I fly on the following day ↓</a>`;
+        if (label) html += `<div class="flt-sec-hdr" id="${container.id}NextDay">${esc(label)}</div>`;
+        html += _flightRowsHtml(day1, all, type);
     }
 
+    html += '</div>';
     container.innerHTML = html;
 }
 
