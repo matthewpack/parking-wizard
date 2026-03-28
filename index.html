@@ -371,33 +371,35 @@
 
 <script>
 // ─── Airport data ──────────────────────────────────────────────────────────────
+// short = step-1 label (friendly, no code)
+// full  = used in wizard context, review & summary (official name)
 const POPULAR = [
-    { code:'LHR', name:'London Heathrow',      lat:51.4706, lon:-0.4619 },
-    { code:'LGW', name:'London Gatwick',        lat:51.1537, lon:-0.1821 },
-    { code:'MAN', name:'Manchester',            lat:53.3537, lon:-2.2750 },
-    { code:'STN', name:'London Stansted',       lat:51.8850, lon: 0.2350 },
-    { code:'LTN', name:'London Luton',          lat:51.8747, lon:-0.3683 },
-    { code:'BHX', name:'Birmingham',            lat:52.4539, lon:-1.7480 },
-    { code:'EDI', name:'Edinburgh',             lat:55.9500, lon:-3.3725 },
-    { code:'GLA', name:'Glasgow',               lat:55.8719, lon:-4.4330 },
+    { code:'LHR', short:'Heathrow',    full:'London Heathrow Airport',       lat:51.4706, lon:-0.4619 },
+    { code:'LGW', short:'Gatwick',     full:'London Gatwick Airport',         lat:51.1537, lon:-0.1821 },
+    { code:'MAN', short:'Manchester',  full:'Manchester Airport',             lat:53.3537, lon:-2.2750 },
+    { code:'STN', short:'Stansted',    full:'London Stansted Airport',        lat:51.8850, lon: 0.2350 },
+    { code:'LTN', short:'Luton',       full:'London Luton Airport',           lat:51.8747, lon:-0.3683 },
+    { code:'BHX', short:'Birmingham',  full:'Birmingham Airport',             lat:52.4539, lon:-1.7480 },
+    { code:'EDI', short:'Edinburgh',   full:'Edinburgh Airport',              lat:55.9500, lon:-3.3725 },
+    { code:'GLA', short:'Glasgow',     full:'Glasgow Airport',                lat:55.8719, lon:-4.4330 },
 ];
 const OTHERS = [
-    { code:'LPL', name:'Liverpool John Lennon', lat:53.3336, lon:-2.8497 },
-    { code:'BRS', name:'Bristol',               lat:51.3827, lon:-2.7191 },
-    { code:'NCL', name:'Newcastle',             lat:55.0375, lon:-1.6917 },
-    { code:'LBA', name:'Leeds Bradford',        lat:53.8659, lon:-1.6606 },
-    { code:'EMA', name:'East Midlands',         lat:52.8311, lon:-1.3281 },
-    { code:'BHD', name:'Belfast City',          lat:54.6175, lon:-5.8725 },
-    { code:'BFS', name:'Belfast International', lat:54.6575, lon:-6.2158 },
-    { code:'ABZ', name:'Aberdeen',              lat:57.2019, lon:-2.1978 },
-    { code:'CWL', name:'Cardiff',               lat:51.3967, lon:-3.3433 },
-    { code:'SOU', name:'Southampton',           lat:50.9503, lon:-1.3569 },
-    { code:'EXT', name:'Exeter',                lat:50.7344, lon:-3.4139 },
-    { code:'NWI', name:'Norwich',               lat:52.6758, lon: 1.2828 },
-    { code:'INV', name:'Inverness',             lat:57.5425, lon:-4.0475 },
-    { code:'HUY', name:'Humberside',            lat:53.5744, lon:-0.3508 },
-    { code:'MME', name:'Teesside',              lat:54.5092, lon:-1.4294 },
-    { code:'NQY', name:'Newquay Cornwall',      lat:50.4406, lon:-4.9955 },
+    { code:'LPL', short:'Liverpool',          full:'Liverpool John Lennon Airport',  lat:53.3336, lon:-2.8497 },
+    { code:'BRS', short:'Bristol',            full:'Bristol Airport',                lat:51.3827, lon:-2.7191 },
+    { code:'NCL', short:'Newcastle',          full:'Newcastle Airport',              lat:55.0375, lon:-1.6917 },
+    { code:'LBA', short:'Leeds Bradford',     full:'Leeds Bradford Airport',         lat:53.8659, lon:-1.6606 },
+    { code:'EMA', short:'East Midlands',      full:'East Midlands Airport',          lat:52.8311, lon:-1.3281 },
+    { code:'BHD', short:'Belfast City',       full:'Belfast City Airport',           lat:54.6175, lon:-5.8725 },
+    { code:'BFS', short:'Belfast Intl',       full:'Belfast International Airport',  lat:54.6575, lon:-6.2158 },
+    { code:'ABZ', short:'Aberdeen',           full:'Aberdeen Airport',               lat:57.2019, lon:-2.1978 },
+    { code:'CWL', short:'Cardiff',            full:'Cardiff Airport',                lat:51.3967, lon:-3.3433 },
+    { code:'SOU', short:'Southampton',        full:'Southampton Airport',            lat:50.9503, lon:-1.3569 },
+    { code:'EXT', short:'Exeter',             full:'Exeter Airport',                 lat:50.7344, lon:-3.4139 },
+    { code:'NWI', short:'Norwich',            full:'Norwich Airport',                lat:52.6758, lon: 1.2828 },
+    { code:'INV', short:'Inverness',          full:'Inverness Airport',              lat:57.5425, lon:-4.0475 },
+    { code:'HUY', short:'Humberside',         full:'Humberside Airport',             lat:53.5744, lon:-0.3508 },
+    { code:'MME', short:'Teesside',           full:'Teesside International Airport', lat:54.5092, lon:-1.4294 },
+    { code:'NQY', short:'Newquay Cornwall',   full:'Newquay Cornwall Airport',       lat:50.4406, lon:-4.9955 },
 ];
 const ALL = POPULAR.concat(OTHERS);
 
@@ -567,12 +569,11 @@ function renderRecents() {
     section.style.display = '';
     document.getElementById('recentChips').innerHTML = airports.map(a =>
         `<div class="recent-chip" role="button" tabindex="0"
-              aria-label="${esc(a.name)} (${a.code})"
-              onclick="pickAirport('${a.code}','${esc(a.name)}')"
-              onkeydown="if(event.key==='Enter')pickAirport('${a.code}','${esc(a.name)}')">
-            <span class="rc-code">${a.code}</span>
-            <span class="rc-name">${esc(a.name)}</span>
-            <span class="rc-x" role="button" aria-label="Remove ${esc(a.name)}"
+              aria-label="${esc(a.short)}"
+              onclick="pickAirport('${a.code}')"
+              onkeydown="if(event.key==='Enter')pickAirport('${a.code}')">
+            <span class="rc-name" style="font-weight:700">${esc(a.short)}</span>
+            <span class="rc-x" role="button" aria-label="Remove ${esc(a.short)}"
                   onclick="event.stopPropagation();removeRecent('${a.code}')"
                   onkeydown="event.stopPropagation()">✕</span>
          </div>`
@@ -589,34 +590,34 @@ function removeRecent(code) {
 function renderPopular(list) {
     document.getElementById('popularGrid').innerHTML = list.map(a =>
         `<div class="a-tile" id="tile-${a.code}" role="listitem" tabindex="0"
-              aria-label="${a.name} (${a.code})"
+              aria-label="${esc(a.short)}"
               data-track-name="parking-wizard-stage1-airport"
               data-track-value="${a.code}"
-              onclick="pickAirport('${a.code}','${esc(a.name)}')"
-              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickAirport('${a.code}','${esc(a.name)}');}">
-            <div class="a-code">${a.code}</div>
-            <div class="a-name">${esc(a.name)}</div>
+              onclick="pickAirport('${a.code}')"
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickAirport('${a.code}');}">
+            <div class="a-name" style="font-size:.85rem;font-weight:700;color:var(--text)">${esc(a.short)}</div>
          </div>`).join('');
 }
 
 function renderAllList(list) {
     document.getElementById('allList').innerHTML = list.map(a =>
         `<div class="a-row" id="row-${a.code}" role="listitem" tabindex="0"
-              aria-label="${a.name} (${a.code})"
+              aria-label="${esc(a.short)}"
               data-track-name="parking-wizard-stage1-airport"
               data-track-value="${a.code}"
-              onclick="pickAirport('${a.code}','${esc(a.name)}')"
-              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickAirport('${a.code}','${esc(a.name)}');}">
-            <span class="a-row-code">${a.code}</span>
-            <span class="a-row-name">${esc(a.name)}</span>
+              onclick="pickAirport('${a.code}')"
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickAirport('${a.code}');}">
+            <span class="a-row-name">${esc(a.short)}</span>
          </div>`).join('');
 }
 
-function pickAirport(code, name) {
+function pickAirport(code) {
     if (state.airport && state.airport.code === code) return;
-    state.airport = { code, name };
+    const airport = ALL.find(a => a.code === code);
+    if (!airport) return;
+    state.airport = airport;
     track('parking-wizard-stage1-airport', code);
-    Favourites.pushAirport({ code, name });
+    Favourites.pushAirport(airport);
     document.querySelectorAll('.a-tile, .a-row').forEach(el => el.classList.remove('selected','confirming'));
     const el = document.getElementById('tile-' + code) || document.getElementById('row-' + code);
     if (el) {
@@ -923,7 +924,7 @@ function buildReview() {
     const flightNote = (f,prefix) => f ? `<div style="font-size:.72rem;color:var(--muted);margin-top:.2rem">${prefix} ${esc(f.code)} → ${esc(f.dest)}</div>` : '';
 
     document.getElementById('reviewRows').innerHTML =
-        rrRow('✈️','Airport',  a.name + ' (' + a.code + ')', 1) +
+        rrRow('✈️','Airport',  a.full + ' (' + a.code + ')', 1) +
         rrRow('🚗','Drop-off', fmtDisplay(dd) + ' at ' + pad2(dt) + ':00', 2, flightNote(df,'Flight')) +
         rrRow('🏠','Return',   fmtDisplay(rd) + ' at ' + pad2(rt) + ':00', 4, flightNote(rf,'Flight'));
 
