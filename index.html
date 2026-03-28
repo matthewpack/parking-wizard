@@ -536,7 +536,8 @@ function normaliseFlights(raw, dateStr, mode) {
             return {
                 code:          e.flight?.code || '',
                 airline:       e.flight?.carrier?.name || e.flight?.carrier?.code || '',
-                dest:          arr.city || arr.airport || '',
+                dest:          arr.airport || arr.city || '',
+                destCountry:   arr.country || '',
                 destAirport:   arr.airport_iata || '',
                 originAirport: dep.airport_iata || '',
                 hour:          parseInt(hStr, 10) || 0,
@@ -1124,7 +1125,7 @@ function _renderFlightRows(container, subset, type) {
                     <span class="fr-arrow" aria-hidden="true">→</span>
                     <span class="fr-dest">
                         <div>${esc(f.dest)}</div>
-                        <div class="fr-note">${termLabel}${csNote}</div>
+                        <div class="fr-note">${[f.destCountry, termLabel].filter(Boolean).map(esc).join(' · ')}${csNote}</div>
                     </span>
                     ${tailfinHtml}
                 </div>`;
