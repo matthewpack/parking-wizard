@@ -118,6 +118,26 @@
         .location-btn.done { background: var(--green); }
         .location-btn:disabled { opacity: .65; cursor: not-allowed; }
 
+        /* ── Recents strip ── */
+        .recents-section { margin-bottom: 1.375rem; }
+        .recent-chips { display: flex; flex-wrap: wrap; gap: .45rem; }
+        .recent-chip {
+            display: inline-flex; align-items: center; gap: .35rem;
+            background: var(--purple-l); border: 1.5px solid var(--purple-m);
+            border-radius: 20px; padding: .45rem .5rem .45rem .875rem;
+            cursor: pointer; transition: background .12s, border-color .12s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .recent-chip:hover { background: var(--purple-m); }
+        .rc-code { font-size: .9rem; font-weight: 800; color: var(--purple); }
+        .rc-name { font-size: .72rem; font-weight: 400; color: var(--text); }
+        .rc-x {
+            font-size: .75rem; color: var(--muted); padding: 2px 4px;
+            border-radius: 10px; line-height: 1; cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .rc-x:hover { background: var(--purple-m); color: var(--text); }
+
         /* ── Airport grid ── */
         .airport-grid {
             display: grid; grid-template-columns: repeat(2, 1fr);
@@ -274,6 +294,13 @@
         <button class="location-btn" id="locationBtn" onclick="requestLocation()">
             <span aria-hidden="true">📍</span> Use precise GPS location
         </button>
+
+        <!-- Recent airports — shown only when history exists -->
+        <div id="recentSection" class="recents-section" style="display:none">
+            <p class="sec-lbl">Recent</p>
+            <div class="recent-chips" id="recentChips"></div>
+        </div>
+
         <p class="sec-lbl">Popular airports</p>
         <div class="airport-grid" id="popularGrid" role="list" aria-label="Popular airports"></div>
         <p class="sec-lbl" style="margin-top:.5rem">All airports</p>
@@ -473,6 +500,90 @@ window.addEventListener('popstate', e => {
     if (n !== currentStep) goToStep(n, true);
 });
 
+// ─── Favourites ────────────────────────────────────────────────────────────────
+// Thin abstraction over localStorage — swap read()/write() for API calls when
+// customer ID becomes available via HX cookies on holidayextras.com.
+// Data shape is deliberately future-proof for flights, destinations, full trips.
+//
+// Stored schema (hx_pw_recents):
+//   [{ airport:{code,name}, flights:[], destinations:[], ts:epoch }, ...]
+//
+const Favourites = {
+    _key: 'hx_pw_recents',
+
+    // ── storage back-end (swap these two for API calls in future) ──
+    read() {
+        try { return JSON.parse(localStorage.getItem(this._key) || '[]'); }
+        catch(e) { return []; }
+    },
+    write(items) {
+        try { localStorage.setItem(this._key, JSON.stringify(items.slice(0, 10))); }
+        catch(e) {}
+    },
+
+    // ── airport ───────────────────────────────────────────────────
+    pushAirport(airport) {
+        // Put this airport at the top, deduplicate by code, cap at 5
+        const existing = this.read().find(r => r.airport.code === airport.code);
+        const entry = existing
+            ? { ...existing, airport, ts: Date.now() }
+            : { airport, flights: [], destinations: [], ts: Date.now() };
+        const rest = this.read().filter(r => r.airport.code !== airport.code);
+        this.write([entry, ...rest].slice(0, 5));
+    },
+    removeAirport(code) {
+        this.write(this.read().filter(r => r.airport.code !== code));
+    },
+    airports() {
+        return this.read().map(r => r.airport);
+    },
+
+    // ── flights (future) — keyed under airport ────────────────────
+    pushFlight(airportCode, flight) {
+        const items = this.read();
+        const rec = items.find(r => r.airport.code === airportCode);
+        if (!rec) return;
+        rec.flights = [flight, ...(rec.flights||[]).filter(f => f.number !== flight.number)].slice(0, 5);
+        this.write(items);
+    },
+
+    // ── destinations (future) ─────────────────────────────────────
+    pushDestination(airportCode, destination) {
+        const items = this.read();
+        const rec = items.find(r => r.airport.code === airportCode);
+        if (!rec) return;
+        rec.destinations = [destination, ...(rec.destinations||[]).filter(d => d.iata !== destination.iata)].slice(0, 10);
+        this.write(items);
+    },
+};
+
+// ─── Render recent airports strip ──────────────────────────────────────────────
+function renderRecents() {
+    const airports = Favourites.airports();
+    const section = document.getElementById('recentSection');
+    if (!section) return;
+    if (!airports.length) { section.style.display = 'none'; return; }
+    section.style.display = '';
+    document.getElementById('recentChips').innerHTML = airports.map(a =>
+        `<div class="recent-chip" role="button" tabindex="0"
+              aria-label="${esc(a.name)} (${a.code})"
+              onclick="pickAirport('${a.code}','${esc(a.name)}')"
+              onkeydown="if(event.key==='Enter')pickAirport('${a.code}','${esc(a.name)}')">
+            <span class="rc-code">${a.code}</span>
+            <span class="rc-name">${esc(a.name)}</span>
+            <span class="rc-x" role="button" aria-label="Remove ${esc(a.name)}"
+                  onclick="event.stopPropagation();removeRecent('${a.code}')"
+                  onkeydown="event.stopPropagation()">✕</span>
+         </div>`
+    ).join('');
+}
+
+function removeRecent(code) {
+    Favourites.removeAirport(code);
+    renderRecents();
+    track('parking-wizard-stage1-recent-removed', code);
+}
+
 // ─── Step 1: Airport ──────────────────────────────────────────────────────────
 function renderPopular(list) {
     document.getElementById('popularGrid').innerHTML = list.map(a =>
@@ -504,6 +615,7 @@ function pickAirport(code, name) {
     if (state.airport && state.airport.code === code) return;
     state.airport = { code, name };
     track('parking-wizard-stage1-airport', code);
+    Favourites.pushAirport({ code, name });
     document.querySelectorAll('.a-tile, .a-row').forEach(el => el.classList.remove('selected','confirming'));
     const el = document.getElementById('tile-' + code) || document.getElementById('row-' + code);
     if (el) {
@@ -872,6 +984,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     renderPopular(POPULAR);
     renderAllList(OTHERS);
+    renderRecents();
 
     // Auto-location on load
     if (navigator.permissions) {
