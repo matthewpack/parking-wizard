@@ -7,6 +7,7 @@ const PORT = process.env.PORT || 8080;
 
 // Gzip/Brotli all responses
 app.use(compression());
+app.use(express.json());
 
 // ─── Flight API proxy ─────────────────────────────────────────────────────────
 // Thin proxy to the Holiday Extras dock-yard flight search endpoint.
@@ -48,6 +49,74 @@ app.get('/api/flights', async (req, res) => {
         console.error('[flights]', e.message);
         res.status(502).json({ error: 'fetch failed' });
     }
+});
+
+// ─── Parking search ───────────────────────────────────────────────────────────
+// Accepts our clean semantic payload, builds the HX URL, logs the search, returns redirectUrl.
+// Decouples the frontend from HX's internal URL structure — update this one place when HX changes.
+
+const searchLog = [];          // rolling in-memory log — no PII
+const LOG_MAX   = 200;
+
+function buildHxUrl({ parkingAirport, parkingDropoffDate, parkingDropoffTime, parkingReturnDate, parkingReturnTime, outboundFlight }) {
+    // HX search uses a hash-based route: /static/?selectProduct=cp&reloadKey=KEY#/categories?...
+    const hashParams = new URLSearchParams({
+        agent:           'WEB1',
+        depart:          parkingAirport,
+        out:             parkingDropoffDate,
+        park_from:       parkingDropoffTime,
+        in:              parkingReturnDate,
+        park_to:         parkingReturnTime,
+        flight:          outboundFlight?.code  || '',
+        terminal:        outboundFlight?.departureTerminal || '',
+        redirectReferal: 'carpark',
+        from_categories: 'true',
+    });
+    return `https://www.holidayextras.com/static/?selectProduct=cp&reloadKey=d1b72610#/categories?${hashParams}`;
+}
+
+app.post('/api/parking/search', (req, res) => {
+    const { parkingAirport, parkingDropoffDate, parkingDropoffTime, parkingReturnDate, parkingReturnTime, outboundFlight, returnFlight } = req.body || {};
+
+    if (!parkingAirport || !parkingDropoffDate || !parkingDropoffTime || !parkingReturnDate || !parkingReturnTime)
+        return res.status(400).json({ error: 'missing required parking fields' });
+
+    const redirectUrl = buildHxUrl(req.body);
+
+    // Calculate nights for the log
+    const msPerDay = 86400000;
+    const nights   = Math.round((new Date(parkingReturnDate) - new Date(parkingDropoffDate)) / msPerDay);
+
+    const entry = {
+        ts:                       new Date().toISOString(),
+        parkingAirport,
+        nights,
+        parkingDropoffDate,
+        parkingDropoffTime,
+        parkingReturnDate,
+        parkingReturnTime,
+        outboundFlight:            outboundFlight?.code             || null,
+        outboundDepartureTerminal: outboundFlight?.departureTerminal || '',
+        returnFlight:              returnFlight?.code               || null,
+        returnArrivalTerminal:     returnFlight?.arrivalTerminal     || '',
+    };
+    searchLog.push(entry);
+    if (searchLog.length > LOG_MAX) searchLog.shift();
+
+    console.log('\n' + '='.repeat(60));
+    console.log('  POST /api/parking/search');
+    console.log(`  ${entry.ts}`);
+    console.log(`  ${parkingAirport} | ${nights} night${nights === 1 ? '' : 's'} | ${parkingDropoffDate} → ${parkingReturnDate}`);
+    if (outboundFlight) console.log(`  outbound: ${outboundFlight.code} (terminal ${outboundFlight.departureTerminal || '-'}) to ${outboundFlight.arrivalAirport}`);
+    if (returnFlight)   console.log(`  return:   ${returnFlight.code} (terminal ${returnFlight.arrivalTerminal || '-'}) from ${returnFlight.departureAirport}`);
+    console.log(`  → ${redirectUrl.slice(0, 90)}...`);
+    console.log('='.repeat(60) + '\n');
+
+    res.json({ redirectUrl });
+});
+
+app.get('/api/log', (req, res) => {
+    res.json(searchLog);
 });
 
 // Serve static files with sensible cache headers

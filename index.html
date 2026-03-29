@@ -579,6 +579,7 @@ function normaliseFlights(raw, dateStr, mode) {
             const [tH, tM] = timeStr.split(':');
             return {
                 code:          e.flight?.code || '',
+                reference:     e.flight?.reference || '',
                 airline:       e.flight?.carrier?.name || e.flight?.carrier?.code || '',
                 dest:          arr.airport || arr.city || '',
                 destCountry:   arr.country || '',
@@ -1203,34 +1204,55 @@ function _renderNoResults(container, query) {
         </div>`;
 }
 
+// Groups flights with the same physical route + departure time into one display entry.
+// Returns [{primary, allCodes, idx}] — primary is the operating (non-codeshare) flight where possible.
+function _groupCodeshares(subset, allFlights) {
+    const groups  = [];
+    const covered = new Set();
+    for (const f of subset) {
+        if (covered.has(f.code)) continue;
+        const siblings = subset.filter(s => s !== f && !covered.has(s.code) &&
+            s.depHour === f.depHour && s.depMinute === f.depMinute &&
+            s.originAirport === f.originAirport && s.destAirport === f.destAirport);
+        siblings.forEach(s => covered.add(s.code));
+        covered.add(f.code);
+        // Prefer the operating carrier as primary
+        const all     = [f, ...siblings];
+        const primary = all.find(s => !s.isCodeshare) || f;
+        const allCodes = all.map(s => s.code);
+        groups.push({ primary, allCodes, idx: allFlights.indexOf(primary) });
+    }
+    return groups;
+}
+
 // Returns HTML string for a subset of flight rows. Indexes into allFlights for stable data-idx.
 function _flightRowsHtml(subset, allFlights, type) {
     const selFlight = type === 'outbound' ? state.dropoffFlight : state.returnFlight;
     const TERM_NAMES = { N:'North Terminal', S:'South Terminal', T:'Tunnel Terminal' };
     let html = '';
 
-    for (const f of subset) {
-        const rawIdx    = allFlights.indexOf(f);
-        const isSel     = selFlight && selFlight.code === f.code;
+    // Group codeshares into single display rows (recents are left ungrouped — they're individual picks)
+    const groups = subset[0]?._isRecent ? subset.map(f => ({ primary:f, allCodes:[f.code], idx:allFlights.indexOf(f) })) : _groupCodeshares(subset, allFlights);
+
+    for (const { primary: f, allCodes, idx: rawIdx } of groups) {
+        const isSel     = selFlight && allCodes.includes(selFlight.code);
         const termLabel = f.terminal ? (TERM_NAMES[f.terminal] || 'Terminal ' + f.terminal) : '';
-        const csNote    = f.isCodeshare ? ` · operated by ${esc(f.operatedBy || 'another carrier')}` : '';
+        const codesHtml = esc(allCodes.join(' / '));
         const tailfinHtml = f.tailfin
             ? `<img class="fr-tail" src="${esc(f.tailfin)}" alt="${esc(f.airline)}" loading="lazy" onerror="this.style.display='none'">` : '';
 
         const isReturn = type === 'return';
 
         if (isReturn) {
-            // Two-leg layout: departure time big, then dep/arr airport codes + arrival time
             const originCode  = f.originAirport || '???';
             const arrCode     = state.airport?.code || '';
             const depDateStr  = f.departureDate ? fmtShort(parseISO(f.departureDate)) : '';
             const arrDateStr  = f.arrivalDate   ? fmtShort(parseISO(f.arrivalDate))   : '';
-            const airlineNote = esc(f.airline) + csNote;
             html += `<div class="flight-row${isSel ? ' selected' : ''}" role="option" aria-selected="${isSel}" tabindex="0"
                          data-idx="${rawIdx}"
                          onclick="pickFlight('${type}',${rawIdx})"
                          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickFlight('${type}',${rawIdx});}">
-                        <span class="fr-code">${esc(f.code)}</span>
+                        <span class="fr-code">${codesHtml}</span>
                         <span class="fr-legs">
                             <div class="fr-leg">
                                 <span class="fr-leg-icon">↗</span>
@@ -1244,7 +1266,7 @@ function _flightRowsHtml(subset, allFlights, type) {
                                 <span class="fr-leg-ap">${esc(arrCode)}</span>
                                 <span class="fr-leg-date">${esc(arrDateStr)}</span>${termLabel ? `<span class="fr-leg-term">${esc(termLabel)}</span>` : ''}
                             </div>
-                            <div class="fr-note">${airlineNote}</div>
+                            <div class="fr-note">${esc(f.airline)}</div>
                         </span>
                         ${tailfinHtml}
                     </div>`;
@@ -1255,12 +1277,12 @@ function _flightRowsHtml(subset, allFlights, type) {
                          data-idx="${rawIdx}"
                          onclick="pickFlight('${type}',${rawIdx})"
                          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickFlight('${type}',${rawIdx});}">
-                        <span class="fr-code">${esc(f.code)}</span>
+                        <span class="fr-code">${codesHtml}</span>
                         <span class="fr-time">${pad2(f.hour)}:${pad2(f.minute)}</span>
                         <span class="fr-arrow" aria-hidden="true">→</span>
                         <span class="fr-dest">
                             <div>${esc(f.dest)}</div>
-                            <div class="fr-note">${noteParts}${csNote}</div>
+                            <div class="fr-note">${noteParts}</div>
                         </span>
                         ${tailfinHtml}
                     </div>`;
@@ -1382,11 +1404,13 @@ function buildReview() {
         rrRow('🚗', 'Dropping off car', fmtDisplay(dd) + ' at ' + pad2(dt) + ':00', 2, dropNote) +
         rrRow('🏠', 'Collecting car',   fmtDisplay(rd) + ' at ' + pad2(rt) + ':00', 5, retNote);
 
-    // Prefetch HX results page
-    const url = buildSearchUrl();
-    let pf = document.getElementById('hx-pf');
-    if (!pf) { pf = document.createElement('link'); pf.id='hx-pf'; pf.rel='prefetch'; document.head.appendChild(pf); }
-    pf.href = url;
+    // Prefetch: fire the search API call early so redirect is instant when user taps Search
+    _buildSearchPayload().then(payload => {
+        fetch('/api/parking/search', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
+            .then(r => r.json())
+            .then(({ redirectUrl }) => { _prefetchedUrl = redirectUrl; })
+            .catch(() => {});
+    });
 
     const loading = document.getElementById('srchLoading'), btn = document.getElementById('searchBtn');
     loading.classList.add('on'); btn.style.display = 'none';
@@ -1394,6 +1418,8 @@ function buildReview() {
 
     track('parking-wizard-stage8-search-summary', a.code);
 }
+
+let _prefetchedUrl = null;
 
 function rrRow(icon, label, value, step, extra) {
     return `<div class="review-row">
@@ -1407,26 +1433,50 @@ function rrRow(icon, label, value, step, extra) {
 }
 
 // ─── Submit ────────────────────────────────────────────────────────────────────
-function submitSearch() {
-    track('parking-wizard-stage6-submit', state.airport.code);
-    window.location.href = buildSearchUrl();
+function _buildSearchPayload() {
+    const df = state.dropoffFlight, rf = state.returnFlight;
+    return Promise.resolve({
+        parkingAirport:     state.airport.code,
+        parkingDropoffDate: fmtISO(state.dropoffDate),
+        parkingDropoffTime: pad2(state.dropoffTime) + ':00',
+        parkingReturnDate:  fmtISO(state.returnDate),
+        parkingReturnTime:  pad2(state.returnTime) + ':00',
+        outboundFlight: df ? {
+            code:              df.code,
+            reference:         df.reference,
+            departureAirport:  df.originAirport,
+            departureDate:     df.departureDate,
+            departureTime:     pad2(df.depHour) + ':' + pad2(df.depMinute),
+            departureTerminal: df.terminal,
+            arrivalAirport:    df.destAirport,
+            arrivalDate:       df.arrivalDate,
+            arrivalTime:       pad2(df.hour) + ':' + pad2(df.minute),
+            arrivalTerminal:   '',
+            dest:              df.dest,
+        } : null,
+        returnFlight: rf ? {
+            code:              rf.code,
+            reference:         rf.reference,
+            departureAirport:  rf.originAirport,
+            departureDate:     rf.departureDate,
+            departureTime:     pad2(rf.depHour) + ':' + pad2(rf.depMinute),
+            departureTerminal: '',
+            arrivalAirport:    rf.destAirport,
+            arrivalDate:       rf.arrivalDate,
+            arrivalTime:       pad2(rf.hour) + ':' + pad2(rf.minute),
+            arrivalTerminal:   rf.terminal,
+        } : null,
+    });
 }
 
-// ─── URL builder ───────────────────────────────────────────────────────────────
-function buildSearchUrl() {
-    const { airport:a, dropoffDate:dd, dropoffTime:dt, dropoffFlight:df, returnDate:rd, returnTime:rt } = state;
-    const p = new URLSearchParams({
-        Referer:'https://www.holidayextras.com/', agent:'WEB1', domain:'www.holidayextras.com',
-        lang:'en', product:'cp', request:'1', rule_set:'hx', selectProduct:'cp', tc:'1', search:'',
-        Location:a.code, ArrivalTime:toHHMM(dt), DepartTime:toHHMM(rt),
-        flightTime:     df ? pad2(df.hour) + pad2(df.minute) : '',
-        flight_number:  df ? df.code : 'default',
-        terminal:       df ? df.terminal : '',
-        CampaignID:'65642',
-    });
-    const ah = toHuman(dd).replace(/ /g,'+'), dh = toHuman(rd).replace(/ /g,'+');
-    const ad = toDDMMYY(dd).replace(/\//g,'%2F'), dD = toDDMMYY(rd).replace(/\//g,'%2F');
-    return `https://www.holidayextras.com/static/?${p}&Arrival=${ah}&ArrivalDate=${ad}&Depart=${dh}&DepartDate=${dD}`;
+async function submitSearch() {
+    track('parking-wizard-stage8-submit', state.airport.code);
+    if (_prefetchedUrl) { window.location.href = _prefetchedUrl; return; }
+    const payload = await _buildSearchPayload();
+    const { redirectUrl } = await fetch('/api/parking/search', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    }).then(r => r.json());
+    window.location.href = redirectUrl;
 }
 
 // ─── Init ──────────────────────────────────────────────────────────────────────
