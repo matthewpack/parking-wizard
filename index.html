@@ -945,6 +945,7 @@ function fmtCoords(lat, lon) {
 
 // Transition the big button → small link once GPS is confirmed
 function gpsGranted(lat, lon) {
+    localStorage.setItem('gps_granted', '1'); // remember across reloads (Safari-safe)
     const bigBtn = document.getElementById('gpsBigBtn');
     const smallLink = document.getElementById('gpsSmallLink');
     if (bigBtn) {
@@ -1766,6 +1767,21 @@ async function submitSearch() {
     window.location.href = redirectUrl;
 }
 
+// Safari doesn't reliably return 'granted' from navigator.permissions.query after reload.
+// Use a localStorage flag set when GPS first succeeds, and fall back to the permissions
+// API or IP location for first-time visitors.
+function _tryGpsOnLoad() {
+    if (localStorage.getItem('gps_granted')) {
+        gpsLookupSilent();
+    } else if (navigator.permissions) {
+        navigator.permissions.query({ name: 'geolocation' }).then(r => {
+            r.state === 'granted' ? gpsLookupSilent() : ipLocationLookup();
+        });
+    } else {
+        ipLocationLookup();
+    }
+}
+
 // ─── Init ──────────────────────────────────────────────────────────────────────
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
@@ -1810,13 +1826,7 @@ window.addEventListener('DOMContentLoaded', () => {
             applyLocation(52.5, -1.5, 'default');
             renderRecents();
             // Run GPS check so step 1 renders correctly if user navigates back
-            if (navigator.permissions) {
-                navigator.permissions.query({ name:'geolocation' }).then(r => {
-                    r.state === 'granted' ? gpsLookupSilent() : ipLocationLookup();
-                });
-            } else {
-                ipLocationLookup();
-            }
+            _tryGpsOnLoad();
             goToStep(8, true); // fromHistory=true — don't push, existing #step1…#step8 entries stay intact
             return;
         } catch(e) { sessionStorage.removeItem('wizard_return'); }
@@ -1827,14 +1837,7 @@ window.addEventListener('DOMContentLoaded', () => {
     renderRecents();
 
     // Auto-location on load
-    if (navigator.permissions) {
-        navigator.permissions.query({ name:'geolocation' }).then(r => {
-            console.log('[location] permission state:', r.state);
-            r.state === 'granted' ? gpsLookupSilent() : ipLocationLookup();
-        });
-    } else {
-        ipLocationLookup();
-    }
+    _tryGpsOnLoad();
 
     // Hash navigation on load
     history.replaceState({ step: 1 }, '', '#flying-from');
