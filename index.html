@@ -500,10 +500,10 @@
                 <div class="spinner" role="status" aria-label="Finding deals"></div>
                 <p>Finding the best deals&hellip;</p>
             </div>
-            <button class="btn-success" id="searchBtn" onclick="submitSearch()" style="display:none">Find Parking &rarr;</button>
+            <button class="btn-success" id="searchBtn" onclick="submitSearch()" style="display:none">Show prices and availability &rarr;</button>
         </div>
         <p style="margin-top:.75rem;font-size:.72rem;color:var(--muted);text-align:center;line-height:1.6">
-            You&rsquo;ll be taken to Holiday Extras to view prices and book.
+            Remember, the earlier you book, the better the price.
         </p>
     </section>
 
@@ -1715,6 +1715,18 @@ function _buildSearchPayload() {
 
 async function submitSearch() {
     track('parking-wizard-stage8-submit', state.airport.code);
+
+    // Save state so pressing Back from HX returns to step 8, not step 1
+    sessionStorage.setItem('wizard_return', JSON.stringify({
+        airport:       state.airport,
+        dropoffDate:   fmtISO(state.dropoffDate),
+        dropoffTime:   state.dropoffTime,
+        dropoffFlight: state.dropoffFlight || null,
+        returnDate:    fmtISO(state.returnDate),
+        returnTime:    state.returnTime,
+        returnFlight:  state.returnFlight  || null,
+    }));
+
     if (_prefetchedUrl) { window.location.href = _prefetchedUrl; return; }
     const payload = await _buildSearchPayload();
     const { redirectUrl } = await fetch('/api/parking/search', {
@@ -1736,6 +1748,26 @@ window.addEventListener('DOMContentLoaded', () => {
             organisation: 'Holiday Extras Limited',
             lb: false,
         });
+    }
+
+    // If user pressed Back from HX search results, restore their state and land on step 8
+    const _saved = sessionStorage.getItem('wizard_return');
+    if (_saved) {
+        sessionStorage.removeItem('wizard_return');
+        try {
+            const s = JSON.parse(_saved);
+            state.airport       = s.airport;
+            state.dropoffDate   = parseISO(s.dropoffDate);
+            state.dropoffTime   = s.dropoffTime;
+            state.dropoffFlight = s.dropoffFlight || null;
+            state.returnDate    = parseISO(s.returnDate);
+            state.returnTime    = s.returnTime;
+            state.returnFlight  = s.returnFlight  || null;
+            applyLocation(52.5, -1.5, 'default');
+            renderRecents();
+            goToStep(8);
+            return;
+        } catch(e) { sessionStorage.removeItem('wizard_return'); }
     }
 
     // Default render sorted from UK centre — IP/GPS will refine immediately
