@@ -1256,7 +1256,7 @@ function _flightRowsHtml(subset, allFlights, type) {
                          data-idx="${rawIdx}"
                          onclick="pickFlight('${type}',${rawIdx})"
                          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickFlight('${type}',${rawIdx});}">
-                        <span class="fr-code">${codesHtml}</span>
+                        <span class="fr-code">${esc(f.code)}</span>
                         <span class="fr-legs">
                             <div class="fr-leg">
                                 <span class="fr-leg-icon">↗</span>
@@ -1270,18 +1270,19 @@ function _flightRowsHtml(subset, allFlights, type) {
                                 <span class="fr-leg-ap">${esc(arrCode)}</span>
                                 <span class="fr-leg-date">${esc(arrDateStr)}</span>${termLabel ? `<span class="fr-leg-term">${esc(termLabel)}</span>` : ''}
                             </div>
-                            <div class="fr-note">${esc(f.airline)}</div>
+                            <div class="fr-note">${[esc(f.airline), ...(allCodes.length > 1 ? [allCodes.slice(1).map(esc).join(', ')] : [])].join(' · ')}</div>
                         </span>
                         ${tailfinHtml}
                     </div>`;
         } else {
-            const noteCountry = f.destCountry || '';
-            const noteParts   = [noteCountry, termLabel].filter(Boolean).map(esc).join(' · ');
+            const noteCountry  = f.destCountry || '';
+            const extraCodes   = allCodes.length > 1 ? allCodes.slice(1).map(esc).join(', ') : '';
+            const noteParts    = [noteCountry, termLabel, extraCodes].filter(Boolean).map(esc).join(' · ');
             html += `<div class="flight-row${isSel ? ' selected' : ''}" role="option" aria-selected="${isSel}" tabindex="0"
                          data-idx="${rawIdx}"
                          onclick="pickFlight('${type}',${rawIdx})"
                          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickFlight('${type}',${rawIdx});}">
-                        <span class="fr-code">${codesHtml}</span>
+                        <span class="fr-code">${esc(f.code)}</span>
                         <span class="fr-time">${pad2(f.hour)}:${pad2(f.minute)}</span>
                         <span class="fr-arrow" aria-hidden="true">→</span>
                         <span class="fr-dest">
