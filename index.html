@@ -262,6 +262,14 @@
             border-radius: 7px; border: 1px solid #c6f6d5; display: none;
         }
         .flight-hint.visible { display: block; }
+        .time-tip {
+            margin-top: 1.5rem; padding: .875rem 1rem;
+            background: #f8f7ff; border: 1.5px solid #e8e4ff;
+            border-radius: 10px; font-size: .8rem; color: var(--muted); line-height: 1.6;
+        }
+        .time-tip strong { color: var(--text); font-weight: 700; }
+        .time-tip a { color: var(--purple); font-weight: 600; text-decoration: none; }
+        .time-tip a:hover { text-decoration: underline; }
         /* ── Flight search bar ── */
         .flt-search-wrap {
             display: none; align-items: center; margin-bottom: .75rem;
@@ -497,6 +505,13 @@
         <div class="flight-hint" id="outboundHint"></div>
         <p class="step-q">What time will you drop your car off?</p>
         <div class="time-grid" id="dropoffTimeGrid" role="listbox" aria-label="Drop-off time"></div>
+        <div class="time-tip">
+            <strong>Not sure of the exact time?</strong> Don't worry — most car parks allow you to arrive up to
+            3 hours either side of your booked drop-off time, and some offer grace periods of up to 6 hours.
+            Check your booking confirmation for the specific terms. If you're concerned about delays on your
+            return, consider adding the <a href="https://www.holidayextras.com" target="_blank" rel="noopener">Overstay Waiver</a>
+            — Holiday Extras will cover late returns for up to 48 hours after your stated collection time.
+        </div>
     </section>
 
     <!-- Step 5: Return date -->
@@ -528,6 +543,14 @@
         <div class="flight-hint" id="returnHint"></div>
         <p class="step-q">What time will you collect your car?</p>
         <div class="time-grid" id="returnTimeGrid" role="listbox" aria-label="Return time"></div>
+        <div class="time-tip">
+            <strong>Flights can be unpredictable.</strong> Most car parks allow you to collect your car
+            up to 3 hours either side of your booked time, and some offer grace periods of up to 6 hours —
+            check your booking confirmation for details. Worried about a long delay? The
+            <a href="https://www.holidayextras.com" target="_blank" rel="noopener">Overstay Waiver</a>
+            means Holiday Extras will cover any late returns or delays for up to 48 hours after your
+            stated collection time, giving you complete peace of mind.
+        </div>
     </section>
 
     <!-- Step 8: Review & search -->
