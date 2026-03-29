@@ -1176,8 +1176,10 @@ function setupDropoffTime() {
     const hint = document.getElementById('outboundHint');
     if (state.dropoffFlight) {
         const f = state.dropoffFlight;
-        const termNote = f.terminal ? ' · ' + fmtTerminal(f.terminal) : '';
-        hint.textContent = '✈ ' + f.code + ' to ' + f.dest + ' at ' + pad2(f.depHour) + ':' + pad2(f.depMinute) + termNote;
+        const airportName = state.airport?.full || state.airport?.name || '';
+        const cityNote   = f.destCity && f.destCity !== f.dest ? ', ' + f.destCity : '';
+        const termNote   = f.terminal ? ' · ' + fmtTerminal(f.terminal) : '';
+        hint.textContent = '✈ ' + f.code + ' to ' + f.dest + cityNote + ' · departs ' + pad2(f.depHour) + ':' + pad2(f.depMinute) + (airportName ? ' · ' + airportName : '') + termNote;
         hint.classList.add('visible');
     } else {
         hint.classList.remove('visible');
