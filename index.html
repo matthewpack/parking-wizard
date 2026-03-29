@@ -908,7 +908,6 @@ function renderAllList(list) {
 }
 
 function pickAirport(code) {
-    if (state.airport && state.airport.code === code) return;
     const airport = ALL.find(a => a.code === code);
     if (!airport) return;
     state.airport = airport;
