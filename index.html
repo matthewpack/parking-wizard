@@ -44,7 +44,7 @@
             --muted:    #718096;
         }
 
-        html { font-size: 18px; }
+        html { font-size: 18px; overflow-x: hidden; }
         body {
             font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             font-size: 1rem;
@@ -206,7 +206,7 @@
             -webkit-tap-highlight-color: transparent;
         }
         .cal-day.past      { color: #c8cfe0; cursor: default; }
-        .cal-day.cal-dropoff { cursor: default; flex-direction: column; line-height: 1.1; gap: 1px; }
+        .cal-day.cal-dropoff { cursor: default; border: 2px solid var(--green); color: var(--muted); font-weight: 600; }
         .cal-day.avail     { cursor: pointer; }
         .cal-day.avail:hover { background: var(--purple-l); color: var(--purple); }
         .cal-day.is-today  { font-weight: 700; color: var(--purple); border: 1.5px solid var(--purple-m); }
@@ -326,7 +326,7 @@
         .flt-date-btn:hover:not(.active) { background: var(--purple-l); }
         .flt-ctx { font-size: .8rem; color: var(--muted); margin-bottom: .625rem; text-align: center; }
         /* ── Return flight rows — two-leg layout ── */
-        .fr-legs { flex: 1; display: flex; flex-direction: column; gap: .18rem; }
+        .fr-legs { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .18rem; }
         .fr-leg  { display: flex; align-items: baseline; gap: .45rem; }
         .fr-leg-icon { font-size: .7rem; color: var(--muted); width: .9rem; flex-shrink: 0; text-align: center; }
         .fr-leg-time { font-weight: 800; color: var(--purple); font-size: 1.15rem; width: 3rem; flex-shrink: 0; }
@@ -1061,7 +1061,7 @@ function renderCalendar(containerId, minDate, maxDays, selectedDate, onPickFn, m
                 if (c.type === 'blank') {
                     html += `<div class="cal-day"></div>`;
                 } else if (c.type === 'marked') {
-                    html += `<div class="cal-day cal-dropoff" title="Drop-off date"><span style="font-size:.8em">🚗</span><span style="font-size:.65rem;color:var(--muted)">${c.day}</span></div>`;
+                    html += `<div class="cal-day cal-dropoff" title="Drop-off date">${c.day}</div>`;
                 } else {
                     const ds   = fmtISO(c.date);
                     const isSel = selectedDate && c.date.getTime() === selectedDate.getTime();
@@ -1091,13 +1091,17 @@ function setupDropoffDate() {
 }
 
 function pickDropoffDate(dateStr) {
-    const d = parseISO(dateStr);
-    state.dropoffDate   = d;
-    state.dropoffFlight = null;
-    if (state.returnDate && state.returnDate <= d) { state.returnDate = null; state.returnTime = null; state.returnFlight = null; }
-    track('parking-wizard-stage2-dropoff-date', dateStr);
-    renderCalendar('dropoffCalBody', today(), 365, d, 'pickDropoffDate');
-    goToStep(3);
+    const cell = document.querySelector('#dropoffCalBody [data-date="' + dateStr + '"]');
+    if (cell) cell.classList.add('is-confirming');
+    setTimeout(() => {
+        const d = parseISO(dateStr);
+        state.dropoffDate   = d;
+        state.dropoffFlight = null;
+        if (state.returnDate && state.returnDate <= d) { state.returnDate = null; state.returnTime = null; state.returnFlight = null; }
+        track('parking-wizard-stage2-dropoff-date', dateStr);
+        renderCalendar('dropoffCalBody', today(), 365, d, 'pickDropoffDate');
+        goToStep(3);
+    }, 280);
 }
 
 // ─── Step 3: Outbound flight ──────────────────────────────────────────────────
@@ -1152,15 +1156,19 @@ function setupReturnDate() {
 }
 
 function pickReturnDate(dateStr) {
-    const d = parseISO(dateStr);
-    state.returnDate   = d;
-    state.returnFlight = null;
-    track('parking-wizard-stage5-return-date', dateStr);
-    const minReturn = state.dropoffDate
-        ? new Date(state.dropoffDate.getFullYear(), state.dropoffDate.getMonth(), state.dropoffDate.getDate() + 1)
-        : today();
-    renderCalendar('returnCalBody', minReturn, 100, d, 'pickReturnDate', state.dropoffDate);
-    goToStep(6);
+    const cell = document.querySelector('#returnCalBody [data-date="' + dateStr + '"]');
+    if (cell) cell.classList.add('is-confirming');
+    setTimeout(() => {
+        const d = parseISO(dateStr);
+        state.returnDate   = d;
+        state.returnFlight = null;
+        track('parking-wizard-stage5-return-date', dateStr);
+        const minReturn = state.dropoffDate
+            ? new Date(state.dropoffDate.getFullYear(), state.dropoffDate.getMonth(), state.dropoffDate.getDate() + 1)
+            : today();
+        renderCalendar('returnCalBody', minReturn, 100, d, 'pickReturnDate', state.dropoffDate);
+        goToStep(6);
+    }, 280);
 }
 
 // ─── Step 6: Return flight ────────────────────────────────────────────────────
