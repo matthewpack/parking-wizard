@@ -12,6 +12,8 @@
     <link rel="apple-touch-icon" href="mole-favicon-package/mole-yellow-final-180.png">
     <link rel="preconnect" href="https://www.holidayextras.com">
     <link rel="dns-prefetch" href="https://www.holidayextras.com">
+    <link rel="preconnect" href="https://ipapi.co">
+    <link rel="dns-prefetch" href="https://ipapi.co">
     <link rel="preload" as="image" fetchpriority="high"
           href="get-holiday-ready.webp"
           imagesrcset="get-holiday-ready-824.webp 824w, get-holiday-ready.webp 1200w"
@@ -47,11 +49,11 @@
             --muted:    #4a5568;
         }
 
-        html { font-size: 18px; overflow-x: clip; }
+        html { font-size: 18px; overflow-x: hidden; }
         body {
             font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             font-size: 1rem;
-            overflow-x: clip;
+            overflow-x: hidden;
             font-weight: 300;
             background: white;
             color: var(--text);
@@ -968,13 +970,24 @@ function gpsLookupSilent() {
 }
 
 function ipLocationLookup() {
+    // Use cached result for 24 h to avoid a cross-origin request on every load
+    const CACHE_KEY = 'ip_loc', CACHE_TTL = 86400000;
+    try {
+        const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+        if (cached && cached.expires > Date.now()) {
+            console.log('[location] IP cached:', cached.label);
+            applyLocation(cached.lat, cached.lon, cached.label);
+            return;
+        }
+    } catch(e) {}
     console.log('[location] IP lookup...');
     fetch('https://ipapi.co/json/')
         .then(r => r.json())
         .then(d => {
             if (d.latitude && d.longitude) {
-                applyLocation(d.latitude, d.longitude, 'IP (' + (d.city || '?') + ')');
-                // Big button stays — IP just improves sort, user can still tap for GPS
+                const label = 'IP (' + (d.city || '?') + ')';
+                applyLocation(d.latitude, d.longitude, label);
+                try { localStorage.setItem(CACHE_KEY, JSON.stringify({ lat: d.latitude, lon: d.longitude, label, expires: Date.now() + CACHE_TTL })); } catch(e) {}
             }
         })
         .catch(e => console.warn('[location] IP lookup failed:', e));
@@ -987,7 +1000,7 @@ function requestLocation() {
         return;
     }
     if (bigBtn) { bigBtn.innerHTML = '📍 Getting your location…'; bigBtn.disabled = true; }
-    console.log('[location] GPS button lookup...');
+    console.log('[location] GPS button lookup (high-accuracy)...');
     navigator.geolocation.getCurrentPosition(
         pos => {
             const lat = pos.coords.latitude, lon = pos.coords.longitude;
@@ -995,15 +1008,27 @@ function requestLocation() {
             gpsGranted(lat, lon);
         },
         err => {
-            console.warn('[location] GPS error:', err.code, err.message);
-            if (bigBtn) {
-                bigBtn.innerHTML = err.code === 1
-                    ? '⚠ GPS blocked · check your browser settings'
-                    : '📍 Could not get GPS · tap to try again';
-                bigBtn.disabled = false;
+            console.warn('[location] high-accuracy failed (code ' + err.code + '), retrying low-accuracy...');
+            if (err.code === 1) {
+                // Permission denied — no point retrying
+                if (bigBtn) { bigBtn.innerHTML = '⚠ GPS blocked · check your browser settings'; bigBtn.disabled = false; }
+                return;
             }
+            // Timeout or unavailable — retry without high-accuracy (works on desktop via Wi-Fi)
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    const lat = pos.coords.latitude, lon = pos.coords.longitude;
+                    applyLocation(lat, lon, 'GPS (±' + Math.round(pos.coords.accuracy) + 'm)');
+                    gpsGranted(lat, lon);
+                },
+                err2 => {
+                    console.warn('[location] low-accuracy also failed (code ' + err2.code + ')');
+                    if (bigBtn) { bigBtn.innerHTML = '📍 Could not get location · tap to try again'; bigBtn.disabled = false; }
+                },
+                { enableHighAccuracy:false, maximumAge:60000, timeout:30000 }
+            );
         },
-        { enableHighAccuracy:true, maximumAge:60000, timeout:30000 }
+        { enableHighAccuracy:true, maximumAge:60000, timeout:15000 }
     );
 }
 
