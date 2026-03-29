@@ -11,9 +11,9 @@ app.use(express.json());
 
 // ─── Flight API proxy ─────────────────────────────────────────────────────────
 // Thin proxy to the Holiday Extras dock-yard flight search endpoint.
-// Caches results in memory for 15 minutes to avoid hammering upstream.
+// Caches results in memory for 4 hours — flights update ~weekly so this is safe.
 const flightCache = new Map(); // "LGW:2026-04-18" → { data, expires }
-const CACHE_TTL   = 15 * 60 * 1000;
+const CACHE_TTL   = 4 * 60 * 60 * 1000;
 
 app.get('/api/flights', async (req, res) => {
     const { location, date, destination, query = '' } = req.query;

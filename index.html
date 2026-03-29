@@ -593,7 +593,8 @@ const AIRLINE_ALIASES = {
 
 // In-session cache so navigating back/forward doesn't re-fetch
 // Key: "LGW:2026-04-18:out" or "TRN:2026-04-28:in:LGW"
-const _flightCache = new Map();
+const _flightCache     = new Map(); // key → Promise<flights[]>
+const _flightDataCache = new Map(); // key → flights[] (resolved, survives sessionStorage round-trip)
 
 // opts.destination → return-flight mode (flights arriving at opts.destination)
 // opts.query       → search string forwarded to dock-yard API
@@ -611,6 +612,7 @@ function fetchFlights(airportCode, date, opts = {}) {
     const p = fetch('/api/flights?' + params)
         .then(r => r.ok ? r.json() : Promise.reject(r.status))
         .then(raw => normaliseFlights(raw, dateStr, mode))
+        .then(flights => { _flightDataCache.set(key, flights); return flights; })
         .catch(e => { console.warn('[flights] fetch failed', e); return []; });
     _flightCache.set(key, p);
     return p;
@@ -1650,22 +1652,20 @@ function buildReview() {
         rrRow('🚗', 'Dropping off car',      fmtNatural(dd) + ' at ' + pad2(dt) + ':00', 2, dropNote) +
         rrRow('🏠', 'Returning to collect car', fmtNatural(rd) + ' at ' + pad2(rt) + ':00', 5, retNote);
 
-    // Prefetch: fire the search API call early so redirect is instant when user taps Search
-    _buildSearchPayload().then(payload => {
+    // Prefetch silently in background — button stays visible throughout
+    _prefetchedUrl = null;
+    _prefetchPromise = _buildSearchPayload().then(payload =>
         fetch('/api/parking/search', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
             .then(r => r.json())
-            .then(({ redirectUrl }) => { _prefetchedUrl = redirectUrl; })
-            .catch(() => {});
-    });
-
-    const loading = document.getElementById('srchLoading'), btn = document.getElementById('searchBtn');
-    loading.classList.add('on'); btn.style.display = 'none';
-    setTimeout(() => { loading.classList.remove('on'); btn.style.display = ''; }, 1100);
+            .then(({ redirectUrl }) => { _prefetchedUrl = redirectUrl; return redirectUrl; })
+            .catch(() => null)
+    );
 
     track('parking-wizard-stage8-search-summary', a.code);
 }
 
-let _prefetchedUrl = null;
+let _prefetchedUrl  = null;
+let _prefetchPromise = null;
 
 function rrRow(icon, label, value, step, extra) {
     return `<div class="review-row">
@@ -1718,7 +1718,7 @@ function _buildSearchPayload() {
 async function submitSearch() {
     track('parking-wizard-stage8-submit', state.airport.code);
 
-    // Save state so pressing Back from HX returns to step 8, not step 1
+    // Persist state + flight cache so Back from HX restores step 8 with no re-fetches
     sessionStorage.setItem('wizard_return', JSON.stringify({
         airport:       state.airport,
         dropoffDate:   fmtISO(state.dropoffDate),
@@ -1728,8 +1728,18 @@ async function submitSearch() {
         returnTime:    state.returnTime,
         returnFlight:  state.returnFlight  || null,
     }));
+    try {
+        const snap = {};
+        for (const [key, flights] of _flightDataCache)
+            snap[key] = flights.map(({ _raw, ...f }) => f);
+        sessionStorage.setItem('wizard_flights', JSON.stringify(snap));
+    } catch(e) {}
 
-    if (_prefetchedUrl) { window.location.href = _prefetchedUrl; return; }
+    // Use prefetched URL if ready; otherwise wait for the in-flight promise
+    const url = _prefetchedUrl || await _prefetchPromise;
+    if (url) { window.location.href = url; return; }
+
+    // Fallback: build fresh (should rarely be needed)
     const payload = await _buildSearchPayload();
     const { redirectUrl } = await fetch('/api/parking/search', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
@@ -1751,6 +1761,19 @@ window.addEventListener('DOMContentLoaded', () => {
             lb: false,
         });
     }
+
+    // Restore flight cache so back-navigation never shows "Loading flights…"
+    try {
+        const savedFlights = sessionStorage.getItem('wizard_flights');
+        if (savedFlights) {
+            sessionStorage.removeItem('wizard_flights');
+            const snap = JSON.parse(savedFlights);
+            for (const [key, flights] of Object.entries(snap)) {
+                _flightDataCache.set(key, flights);
+                _flightCache.set(key, Promise.resolve(flights));
+            }
+        }
+    } catch(e) {}
 
     // If user pressed Back from HX search results, restore their state and land on step 8
     const _saved = sessionStorage.getItem('wizard_return');
