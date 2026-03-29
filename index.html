@@ -965,7 +965,7 @@ function gpsLookupSilent() {
             if (bigBtn) bigBtn.style.display = '';
             ipLocationLookup();
         },
-        { enableHighAccuracy:true, maximumAge:300000, timeout:10000 }
+        { enableHighAccuracy:false, maximumAge:600000, timeout:20000 }
     );
 }
 
@@ -1025,7 +1025,7 @@ function requestLocation() {
                     console.warn('[location] low-accuracy also failed (code ' + err2.code + ')');
                     if (bigBtn) { bigBtn.innerHTML = '📍 Could not get location · tap to try again'; bigBtn.disabled = false; }
                 },
-                { enableHighAccuracy:false, maximumAge:60000, timeout:30000 }
+                { enableHighAccuracy:false, maximumAge:300000, timeout:30000 }
             );
         },
         { enableHighAccuracy:true, maximumAge:60000, timeout:15000 }
