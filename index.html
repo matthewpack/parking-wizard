@@ -1297,18 +1297,20 @@ function _renderNoResults(container, query) {
 // Returns [{primary, allCodes, idx}] — primary is the operating (non-codeshare) flight where possible.
 function _groupCodeshares(subset, allFlights) {
     const groups  = [];
-    const covered = new Set();
+    const covered = new Set(); // keyed by code+date so same route on different days stays separate
+    const _key = f => f.code + '|' + (f.departureDate || '');
     for (const f of subset) {
-        if (covered.has(f.code)) continue;
-        const siblings = subset.filter(s => s !== f && !covered.has(s.code) &&
+        if (covered.has(_key(f))) continue;
+        const siblings = subset.filter(s => s !== f && !covered.has(_key(s)) &&
             s.depHour === f.depHour && s.depMinute === f.depMinute &&
+            s.departureDate === f.departureDate &&
             s.originAirport === f.originAirport && s.destAirport === f.destAirport);
-        siblings.forEach(s => covered.add(s.code));
-        covered.add(f.code);
+        siblings.forEach(s => covered.add(_key(s)));
+        covered.add(_key(f));
         // Prefer the operating carrier as primary
-        const all     = [f, ...siblings];
-        const primary = all.find(s => !s.isCodeshare) || f;
-        const allCodes = all.map(s => s.code);
+        const all      = [f, ...siblings];
+        const primary  = all.find(s => !s.isCodeshare) || f;
+        const allCodes = [...new Set(all.map(s => s.code))]; // dedup just in case
         groups.push({ primary, allCodes, idx: allFlights.indexOf(primary) });
     }
     return groups;
