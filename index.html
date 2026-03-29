@@ -1279,7 +1279,9 @@ let _returnViewDate = null;
 function _renderReturnDateStrip() {
     const strip = document.getElementById('returnDateStrip');
     const base  = state.returnDate;
-    strip.innerHTML = [-1, 0, 1].map(offset => {
+    // Two dates only: the day before (overnight/late landing edge case) + the collection date.
+    // A day after the collection date would mean collecting the car before landing — nonsensical.
+    strip.innerHTML = [-1, 0].map(offset => {
         const d  = new Date(base.getFullYear(), base.getMonth(), base.getDate() + offset);
         const ds = fmtISO(d);
         const active = fmtISO(_returnViewDate) === ds;
