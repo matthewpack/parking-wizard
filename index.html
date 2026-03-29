@@ -1002,12 +1002,11 @@ function gpsLookupSilent() {
             gpsGranted(lat, lon);
         },
         () => {
-            // Silent GPS failed — restore big button and fall back to IP
+            // Silent GPS failed — restore big button (IP lookup already running in parallel)
             const bigBtn = document.getElementById('gpsBigBtn');
             if (bigBtn) bigBtn.style.display = '';
-            ipLocationLookup();
         },
-        { enableHighAccuracy:false, maximumAge:300000, timeout:10000 }
+        { enableHighAccuracy:true, maximumAge:300000, timeout:15000 }
     );
 }
 
@@ -1263,15 +1262,11 @@ function setupReturnFlight() {
     const ctx = document.getElementById('returnFlightCtx');
     ctx.innerHTML = esc(state.dropoffFlight?.dest || outDest) + ' &rarr; ' + esc(state.airport?.full || state.airport?.name || state.airport?.code || '');
 
-    // Date strip — restore toggled date if user already picked a flight.
-    // Otherwise default to the day BEFORE the collection date: the API works on
-    // departure-from-origin date, so a flight landing on collection day will have
-    // departed the previous day (overnight long-haul). Short-haul same-day users
-    // can tap the +1 tab to find their flight.
-    const dayBeforeReturn = new Date(state.returnDate.getFullYear(), state.returnDate.getMonth(), state.returnDate.getDate() - 1);
+    // Date strip — restore toggled date if user already picked a flight,
+    // otherwise default to the collection date the user entered.
     _returnViewDate = (state.returnFlight?.departureDate)
         ? parseISO(state.returnFlight.departureDate)
-        : dayBeforeReturn;
+        : state.returnDate;
     _renderReturnDateStrip();
 
     _loadReturnFlights(outDest, _returnViewDate);
@@ -1300,8 +1295,23 @@ function _loadReturnFlights(outDest, date) {
     const container = document.getElementById('returnFlightList');
     container.innerHTML = '<div class="flight-loading">Loading flights…</div>';
     document.getElementById('returnSearchWrap')?.classList.remove('visible');
-    fetchFlights(outDest, date, { destination: state.airport.code })
-        .then(flights => renderFlightList('returnFlightList', flights, 'return'));
+    // Fetch both the selected date AND the day before — overnight long-haul flights
+    // (e.g. Bangkok→London) depart the day before they land, so both days' departures
+    // are relevant when the user picks their car collection (= landing) date.
+    const dayBefore = new Date(date.getFullYear(), date.getMonth(), date.getDate() - 1);
+    Promise.all([
+        fetchFlights(outDest, dayBefore, { destination: state.airport.code }),
+        fetchFlights(outDest, date,      { destination: state.airport.code })
+    ]).then(([before, same]) => {
+        const seen = new Set();
+        const merged = [...before, ...same].filter(f => {
+            const key = f.code + ':' + f.departureDate + ':' + f.depHour + ':' + f.depMinute;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+        renderFlightList('returnFlightList', merged, 'return');
+    });
 }
 
 // ─── Step 7: Return time ──────────────────────────────────────────────────────
@@ -1871,14 +1881,15 @@ async function submitSearch() {
 // Use a localStorage flag set when GPS first succeeds, and fall back to the permissions
 // API or IP location for first-time visitors.
 function _tryGpsOnLoad() {
+    // Always kick off IP lookup immediately — gives a fast approximate result
+    // while GPS (if available) runs in parallel and upgrades it when ready.
+    ipLocationLookup();
     if (localStorage.getItem('gps_granted')) {
         gpsLookupSilent();
     } else if (navigator.permissions) {
         navigator.permissions.query({ name: 'geolocation' }).then(r => {
-            r.state === 'granted' ? gpsLookupSilent() : ipLocationLookup();
+            if (r.state === 'granted') gpsLookupSilent();
         });
-    } else {
-        ipLocationLookup();
     }
 }
 
