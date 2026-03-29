@@ -73,7 +73,7 @@
         }
 
         /* ── Container ── */
-        .container { max-width: 540px; width: 100%; margin: 0 auto; }
+        .container { max-width: 620px; width: 100%; margin: 0 auto; }
 
         /* ── Hero image — full viewport width between header and steps ── */
         .hero-wrap { width: 100%; line-height: 0; }
@@ -226,7 +226,8 @@
             border-bottom: 1px solid var(--border); cursor: pointer; min-height: 58px;
             transition: background .1s; user-select: none; -webkit-tap-highlight-color: transparent;
         }
-        .flight-row:last-child  { border-bottom: none; }
+        .flight-list > .flight-row:last-child,
+        .flight-list > div:last-child > .flight-row:last-child { border-bottom: none; }
         .flight-row:hover       { background: var(--purple-l); }
         .flight-row.selected    { background: var(--purple-l); }
         .flight-row.confirming  { background: var(--green-l); }
