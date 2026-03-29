@@ -748,6 +748,7 @@ function goToStep(n, fromHistory) {
     if (!fromHistory) history.pushState({ step: n }, '', '#' + STEP_HASHES[n]);
     document.title = STEP_TITLES[n] + ' — Airport Parking | Holiday Extras';
 
+    window.scrollTo({ top: 0, behavior: 'instant' });
     const body = document.querySelector('#step-' + n + ' .step-body');
     if (body) body.scrollTop = 0;
 
