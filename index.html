@@ -1219,7 +1219,13 @@ function pickReturnDate(dateStr) {
 // ─── Step 6: Return flight ────────────────────────────────────────────────────
 function setupReturnFlight() {
     const outDest = state.dropoffFlight?.destAirport;
-    if (!outDest) { goToStep(7); return; }   // skip straight to time
+    if (!outDest) {
+        // No outbound flight — replace the step-6 history entry with step-7 so
+        // pressing Back skips this step rather than bouncing in a loop.
+        history.replaceState({ step: 7 }, '', '#' + STEP_HASHES[7]);
+        goToStep(7, true);
+        return;
+    }
 
     // Context header: origin city → parking airport
     const ctx = document.getElementById('returnFlightCtx');
