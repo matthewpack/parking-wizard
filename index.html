@@ -1270,13 +1270,13 @@ function _flightRowsHtml(subset, allFlights, type) {
                                 <span class="fr-leg-ap">${esc(arrCode)}</span>
                                 <span class="fr-leg-date">${esc(arrDateStr)}</span>${termLabel ? `<span class="fr-leg-term">${esc(termLabel)}</span>` : ''}
                             </div>
-                            <div class="fr-note">${[esc(f.airline), ...(allCodes.length > 1 ? [allCodes.slice(1).map(esc).join(', ')] : [])].join(' · ')}</div>
+                            <div class="fr-note">${[esc(f.airline), ...( allCodes.filter(c => c !== f.code).length ? [allCodes.filter(c => c !== f.code).map(esc).join(', ')] : [])].join(' · ')}</div>
                         </span>
                         ${tailfinHtml}
                     </div>`;
         } else {
             const noteCountry  = f.destCountry || '';
-            const extraCodes   = allCodes.length > 1 ? allCodes.slice(1).map(esc).join(', ') : '';
+            const extraCodes   = allCodes.filter(c => c !== f.code).map(esc).join(', ');
             const noteParts    = [noteCountry, termLabel, extraCodes].filter(Boolean).map(esc).join(' · ');
             html += `<div class="flight-row${isSel ? ' selected' : ''}" role="option" aria-selected="${isSel}" tabindex="0"
                          data-idx="${rawIdx}"
