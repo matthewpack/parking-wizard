@@ -442,12 +442,15 @@
         <h2 class="step-title">Your outbound flight</h2>
         <div class="flight-section">
             <p class="sec-lbl">Find your flight <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.7rem;color:var(--muted)">(optional)</span></p>
-            <div class="flt-search-wrap" id="outboundSearchWrap">
-                <input type="text" id="outboundFlightSearch" class="flt-search-inp" placeholder="Search destination, time or airline…" autocomplete="off" oninput="filterFlights('outboundFlightList','outbound')">
-                <span class="flt-search-count" id="outboundFlightCount"></span>
-                <button class="flt-search-clear" id="outboundSearchClear" onclick="clearFlightSearch('outboundFlightList','outbound')" aria-label="Clear search" style="display:none">✕</button>
+            <div class="flt-return-wrap">
+                <div class="flt-date-strip" id="outboundDateStrip"></div>
+                <div class="flt-search-wrap" id="outboundSearchWrap">
+                    <input type="text" id="outboundFlightSearch" class="flt-search-inp" placeholder="Search destination, time or airline…" autocomplete="off" oninput="filterFlights('outboundFlightList','outbound')">
+                    <span class="flt-search-count" id="outboundFlightCount"></span>
+                    <button class="flt-search-clear" id="outboundSearchClear" onclick="clearFlightSearch('outboundFlightList','outbound')" aria-label="Clear search" style="display:none">✕</button>
+                </div>
+                <div id="outboundFlightList" role="listbox"></div>
             </div>
-            <div id="outboundFlightList" role="listbox"></div>
             <span class="skip-flight-link" tabindex="0"
                   onclick="skipFlight('outbound')"
                   onkeydown="if(event.key==='Enter')skipFlight('outbound')">Skip — I'll enter the time manually</span>
@@ -1105,18 +1108,44 @@ function pickDropoffDate(dateStr) {
 }
 
 // ─── Step 3: Outbound flight ──────────────────────────────────────────────────
+let _outboundViewDate = null;
+
 function setupDropoffFlight() {
     if (!state.airport || !state.dropoffDate) return;
+    document.getElementById('outboundSearchWrap').classList.remove('visible');
+    _outboundViewDate = (state.dropoffFlight?.departureDate)
+        ? parseISO(state.dropoffFlight.departureDate)
+        : state.dropoffDate;
+    _renderOutboundDateStrip();
+    _loadOutboundFlights(_outboundViewDate);
+    // Warm the cache for the next day so switching feels instant
+    const d1 = new Date(state.dropoffDate.getFullYear(), state.dropoffDate.getMonth(), state.dropoffDate.getDate() + 1);
+    fetchFlights(state.airport.code, d1);
+}
+
+function _renderOutboundDateStrip() {
+    const strip = document.getElementById('outboundDateStrip');
+    const base  = state.dropoffDate;
+    strip.innerHTML = [0, 1].map(offset => {
+        const d  = new Date(base.getFullYear(), base.getMonth(), base.getDate() + offset);
+        const ds = fmtISO(d);
+        const active = fmtISO(_outboundViewDate) === ds;
+        return `<button class="flt-date-btn${active ? ' active' : ''}" onclick="switchOutboundDate('${ds}')">${fmtShort(d)}</button>`;
+    }).join('');
+}
+
+function switchOutboundDate(dateStr) {
+    _outboundViewDate = parseISO(dateStr);
+    _renderOutboundDateStrip();
+    _loadOutboundFlights(_outboundViewDate);
+}
+
+function _loadOutboundFlights(date) {
     const container = document.getElementById('outboundFlightList');
     container.innerHTML = '<div class="flight-loading">Loading flights…</div>';
     document.getElementById('outboundSearchWrap').classList.remove('visible');
-    const d0 = state.dropoffDate;
-    const d1 = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + 1);
-    Promise.all([fetchFlights(state.airport.code, d0), fetchFlights(state.airport.code, d1)])
-        .then(([f0, f1]) => {
-            const nextDay = f1.map(f => ({ ...f, _nextDay: true }));
-            renderFlightList('outboundFlightList', [...f0, ...nextDay], 'outbound');
-        });
+    fetchFlights(state.airport.code, date)
+        .then(flights => renderFlightList('outboundFlightList', flights, 'outbound'));
 }
 
 // ─── Step 4: Drop-off time ────────────────────────────────────────────────────
