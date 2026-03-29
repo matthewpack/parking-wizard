@@ -542,7 +542,7 @@
     <section class="step" id="step-7">
         <h2 class="step-title">Car collection time</h2>
         <div class="flight-hint" id="returnHint"></div>
-        <p class="step-q">What time will you collect your car?</p>
+        <p class="step-q" id="returnTimeQ">What time will you collect your car?</p>
         <div class="time-grid" id="returnTimeGrid" role="listbox" aria-label="Return time"></div>
         <div class="time-tip">
             <strong>Flights can be unpredictable.</strong> Most car parks allow you to collect your car
@@ -1323,6 +1323,18 @@ function _loadReturnFlights(outDest, date) {
 }
 
 // ─── Step 7: Return time ──────────────────────────────────────────────────────
+function _returnSuggestedHour() {
+    const f = state.returnFlight;
+    if (!f) return state.returnTime;
+    // If the flight lands the day BEFORE the collection date (overnight long-haul),
+    // the suggested collection time wraps past midnight into the next day.
+    // e.g. lands 23:40 Mon → suggest 01:40 Tue (not 23:00 Mon).
+    const landingDateStr   = f.arrivalDate || f.departureDate || '';
+    const collectionDateStr = state.returnDate ? fmtISO(state.returnDate) : '';
+    const isOvernightPickup = landingDateStr && collectionDateStr && landingDateStr < collectionDateStr;
+    return isOvernightPickup ? (f.hour + 2) % 24 : Math.min(23, f.hour + 2);
+}
+
 function setupReturnTime() {
     const hint = document.getElementById('returnHint');
     if (state.returnFlight) {
@@ -1335,12 +1347,17 @@ function setupReturnTime() {
     } else {
         hint.classList.remove('visible');
     }
-    renderTimePicker('returnTimeGrid', state.returnTime, state.returnFlight ? Math.min(23, state.returnFlight.hour + 2) : state.returnTime, onReturnTime);
+    // Update question text to include the collection date so it's unambiguous
+    const qEl = document.getElementById('returnTimeQ');
+    if (qEl && state.returnDate) {
+        qEl.textContent = 'What time will you collect your car on ' + fmtDisplay(state.returnDate) + '?';
+    }
+    renderTimePicker('returnTimeGrid', state.returnTime, _returnSuggestedHour(), onReturnTime);
 }
 
 function onReturnTime(h) {
     state.returnTime = h;
-    renderTimePicker('returnTimeGrid', h, state.returnFlight ? Math.min(23, state.returnFlight.hour + 2) : null, onReturnTime);
+    renderTimePicker('returnTimeGrid', h, _returnSuggestedHour(), onReturnTime);
     track('parking-wizard-stage7-return-time', pad2(h) + ':00');
     goToStep(8);
 }
