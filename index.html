@@ -249,11 +249,6 @@
         .fr-dest  { flex: 1; font-size: .875rem; color: var(--text); }
         .fr-dest > div:first-child { font-weight: 700; color: #1a1a2e; }
         .fr-note  { font-size: .78rem; color: var(--muted); margin-top: .15rem; }
-        .skip-flight-link {
-            display: block; text-align: center; font-size: .875rem; color: var(--muted);
-            cursor: pointer; padding: .375rem; text-decoration: underline; text-decoration-style: dotted;
-        }
-        .skip-flight-link:hover { color: var(--text); }
         .flight-hint {
             font-size: .85rem; color: var(--green); font-weight: 600;
             margin-bottom: .875rem; padding: .5rem .75rem; background: var(--green-l);
@@ -272,6 +267,9 @@
             top: 0;
             z-index: 20;
             box-shadow: 0 2px 8px rgba(0,0,0,.10);
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
         }
         .flt-search-inp {
             flex: 1; border: none; outline: none; padding: .625rem .875rem;
@@ -312,12 +310,18 @@
         }
         .fr-recent-remove:hover { color: var(--text); }
 
-        /* ── Find flight header row: label left, skip right ── */
-        .flt-find-hdr {
-            display: flex; align-items: baseline; justify-content: space-between; margin-bottom: .625rem;
+        /* ── Skip flight button ── */
+        .btn-skip {
+            display: block; width: 100%; margin-top: 1rem;
+            padding: .75rem 1rem; border: 1.5px solid var(--border);
+            border-radius: 10px; background: white;
+            font-size: .9rem; font-family: inherit; font-weight: 600;
+            color: var(--muted); cursor: pointer; text-align: center;
+            -webkit-tap-highlight-color: transparent;
+            transition: border-color .15s, color .15s;
         }
-        .flt-find-hdr .sec-lbl { margin-bottom: 0; }
-        .flt-find-hdr .skip-flight-link { display: inline; padding: 0; font-size: .875rem; }
+        .btn-skip:hover { border-color: var(--purple); color: var(--purple); }
+        .btn-skip:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; border-color: var(--purple); color: var(--purple); }
 
         /* ── Bordered wrapper containing date strip + search + rows ── */
         .flt-return-wrap {
@@ -461,12 +465,7 @@
     <section class="step" id="step-3">
         <h2 class="step-title">Your outbound flight</h2>
         <div class="flight-section">
-            <div class="flt-find-hdr">
-                <p class="sec-lbl">Find your flight</p>
-                <span class="skip-flight-link" tabindex="0"
-                      onclick="skipFlight('outbound')"
-                      onkeydown="if(event.key==='Enter')skipFlight('outbound')">Skip</span>
-            </div>
+            <p class="sec-lbl">Find your flight</p>
             <div class="flt-date-strip" id="outboundDateStrip"></div>
             <div class="flt-search-wrap" id="outboundSearchWrap">
                 <input type="text" id="outboundFlightSearch" class="flt-search-inp" placeholder="Search destination, time or airline…" autocomplete="off" oninput="filterFlights('outboundFlightList','outbound')">
@@ -474,6 +473,7 @@
                 <button class="flt-search-clear" id="outboundSearchClear" onclick="clearFlightSearch('outboundFlightList','outbound')" aria-label="Clear search" style="display:none">✕</button>
             </div>
             <div id="outboundFlightList" role="listbox"></div>
+            <button type="button" class="btn-skip" onclick="skipFlight('outbound')">Skip — I'll enter the drop-off time manually</button>
         </div>
     </section>
 
@@ -502,9 +502,7 @@
 
                 <div id="returnFlightList" role="listbox"></div>
             </div>
-            <span class="skip-flight-link" tabindex="0"
-                  onclick="skipFlight('return')"
-                  onkeydown="if(event.key==='Enter')skipFlight('return')">Skip — I'll enter the time manually</span>
+            <button type="button" class="btn-skip" onclick="skipFlight('return')">Skip — I'll enter the collection time manually</button>
         </div>
     </section>
 
