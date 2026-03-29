@@ -1463,16 +1463,6 @@ function filterFlights(containerId, type) {
 
     if (clearBtn) clearBtn.style.display = q ? '' : 'none';
 
-    // Snap the search bar to the top of the viewport so filtered results always
-    // appear directly beneath it. scrollIntoView is unreliable on sticky elements
-    // (browser considers them already visible), so compute natural document position.
-    const wrap = document.getElementById(_searchWrapId(containerId));
-    if (wrap && q) {
-        let el = wrap, top = 0;
-        while (el) { top += el.offsetTop; el = el.offsetParent; }
-        window.scrollTo({ top: Math.max(0, top - 8), behavior: 'instant' });
-    }
-
     if (!q) {
         const totalGroups = _groupCodeshares(all, all).length;
         _setSearchCount(containerId, totalGroups, totalGroups);
@@ -1527,6 +1517,15 @@ function filterFlights(containerId, type) {
         _renderNoResults(container, q);
     } else {
         container.innerHTML = '<div class="flight-list">' + _flightRowsHtml(filtered, all, type, words) + '</div>';
+    }
+
+    // Scroll AFTER rendering — document is now at its new (shorter) height,
+    // so the scroll position won't be clamped back down.
+    const wrap = document.getElementById(_searchWrapId(containerId));
+    if (wrap) {
+        let el = wrap, top = 0;
+        while (el) { top += el.offsetTop; el = el.offsetParent; }
+        window.scrollTo({ top: Math.max(0, top - 8), behavior: 'instant' });
     }
 }
 
