@@ -325,12 +325,13 @@
         }
         .fr-recent-remove:hover { color: var(--text); }
 
-        /* ── Skip flight button ── */
-        .sec-lbl-row {
+        /* ── Skip flight button — lives on the same line as the step title ── */
+        .step-title-row {
             display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: .35rem;
+            margin-bottom: 20px;
         }
-        .sec-lbl-row .sec-lbl { margin-bottom: 0; }
+        .step-title-row .step-title { margin-bottom: 0; }
+        .sec-lbl-row { margin-bottom: .35rem; }
         .btn-skip {
             padding: .3rem .75rem; border: 1.5px solid var(--purple);
             border-radius: 20px; background: white;
@@ -484,11 +485,13 @@
 
     <!-- Step 3: Outbound flight -->
     <section class="step" id="step-3">
-        <h2 class="step-title">Your outbound flight</h2>
+        <div class="step-title-row">
+            <h2 class="step-title">Your outbound flight</h2>
+            <button type="button" class="btn-skip" onclick="skipFlight('outbound')">Skip</button>
+        </div>
         <div class="flight-section">
             <div class="sec-lbl-row">
                 <p class="sec-lbl">Find your flight</p>
-                <button type="button" class="btn-skip" onclick="skipFlight('outbound')">Skip</button>
             </div>
             <div class="flt-date-strip" id="outboundDateStrip"></div>
             <div class="flt-search-wrap" id="outboundSearchWrap">
@@ -524,11 +527,13 @@
 
     <!-- Step 6: Return flight -->
     <section class="step" id="step-6">
-        <h2 class="step-title">Your return flight</h2>
+        <div class="step-title-row">
+            <h2 class="step-title">Your return flight</h2>
+            <button type="button" class="btn-skip" onclick="skipFlight('return')">Skip</button>
+        </div>
         <div class="flight-section" id="returnFlightSection">
             <div class="sec-lbl-row">
                 <p class="flt-ctx" id="returnFlightCtx" style="margin-bottom:0"></p>
-                <button type="button" class="btn-skip" onclick="skipFlight('return')">Skip</button>
             </div>
             <div class="flt-return-wrap">
                 <div class="flt-date-strip" id="returnDateStrip"></div>
@@ -749,6 +754,8 @@ function toDDMMYY(d)  { return pad2(d.getDate())+'/'+pad2(d.getMonth()+1)+'/'+St
 function toHuman(d)   { const n=d.getDate(),s=(n>=11&&n<=13)?'th':(['th','st','nd','rd'][n%10]||'th'); return DAYS[d.getDay()]+' '+n+s+' '+SMON[d.getMonth()]+' '+String(d.getFullYear()).slice(2); }
 function toHHMM(h)    { return pad2(h)+'00'; }
 function pad2(n)      { return String(n).padStart(2,'0'); }
+// Special time sentinels: -1 = 00:01, 24 = 23:59, integers 0-23 = whole hours.
+function fmtTime(t)   { if (t === -1) return '00:01'; if (t === 24) return '23:59'; return pad2(t) + ':00'; }
 // Full natural date: "Saturday 11th April 2026"
 function fmtNatural(d){ const n=d.getDate(),s=(n>=11&&n<=13)?'th':(['th','st','nd','rd'][n%10]||'th'); return FULL_DAYS[d.getDay()]+' '+n+s+' '+MONTHS[d.getMonth()]+' '+d.getFullYear(); }
 // Terminal label: N→North Terminal, S→South Terminal, else Terminal X
@@ -1214,7 +1221,7 @@ function setupDropoffTime() {
 function onDropoffTime(h) {
     state.dropoffTime = h;
     renderTimePicker('dropoffTimeGrid', h, state.dropoffFlight ? Math.max(0, state.dropoffFlight.hour - 3) : null, onDropoffTime);
-    track('parking-wizard-stage4-dropoff-time', pad2(h) + ':00');
+    track('parking-wizard-stage4-dropoff-time', fmtTime(h));
     goToStep(5);
 }
 
@@ -1222,7 +1229,7 @@ function onDropoffTime(h) {
 function setupReturnDate() {
     const ctx = document.getElementById('returnCtx');
     if (state.dropoffDate && state.dropoffTime !== null) {
-        ctx.innerHTML = 'Dropping off: <strong>' + fmtDisplay(state.dropoffDate) + ' at ' + pad2(state.dropoffTime) + ':00</strong>';
+        ctx.innerHTML = 'Dropping off: <strong>' + fmtDisplay(state.dropoffDate) + ' at ' + fmtTime(state.dropoffTime) + '</strong>';
         ctx.style.display = '';
     } else {
         ctx.style.display = 'none';
@@ -1366,7 +1373,7 @@ function setupReturnTime() {
 function onReturnTime(h) {
     state.returnTime = h;
     renderTimePicker('returnTimeGrid', h, _returnSuggestedHour(), onReturnTime);
-    track('parking-wizard-stage7-return-time', pad2(h) + ':00');
+    track('parking-wizard-stage7-return-time', fmtTime(h));
     goToStep(8);
 }
 
@@ -1785,20 +1792,24 @@ function skipFlight(type) {
 function renderTimePicker(containerId, selectedHour, suggestedHour, cb) {
     const grid = document.getElementById(containerId);
     grid.innerHTML = '';
-    for (let h = 0; h < 24; h++) {
-        const label  = pad2(h) + ':00';
-        const isSel  = selectedHour === h;
-        const isSugg = !isSel && suggestedHour === h;
+    // 00:00, 00:01, 01:00 … 23:00, 23:59  (26 values; -1 = 00:01, 24 = 23:59)
+    const values = [0, -1];
+    for (let h = 1; h <= 23; h++) values.push(h);
+    values.push(24);
+    values.forEach(v => {
+        const label  = fmtTime(v);
+        const isSel  = selectedHour === v;
+        const isSugg = !isSel && suggestedHour === v;
         const pill   = document.createElement('div');
         pill.className   = 'time-pill' + (isSel ? ' tp-sel' : isSugg ? ' tp-suggest' : '');
         pill.textContent = label;
         pill.setAttribute('role', 'option');
         pill.setAttribute('aria-selected', String(isSel));
         pill.setAttribute('tabindex', '0');
-        pill.addEventListener('click',   () => cb(h));
-        pill.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); cb(h); } });
+        pill.addEventListener('click',   () => cb(v));
+        pill.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); cb(v); } });
         grid.appendChild(pill);
-    }
+    });
 }
 
 // ─── Step 6: Review ────────────────────────────────────────────────────────────
@@ -1825,8 +1836,8 @@ function buildReview() {
 
     document.getElementById('reviewRows').innerHTML =
         rrRow('✈️', 'Airport',        a.full + ' (' + a.code + ')', 1) +
-        rrRow('🚗', 'Dropping off car',      fmtNatural(dd) + ' at ' + pad2(dt) + ':00', 2, dropNote) +
-        rrRow('🏠', 'Returning to collect car', fmtNatural(rd) + ' at ' + pad2(rt) + ':00', 5, retNote);
+        rrRow('🚗', 'Dropping off car',      fmtNatural(dd) + ' at ' + fmtTime(dt), 2, dropNote) +
+        rrRow('🏠', 'Returning to collect car', fmtNatural(rd) + ' at ' + fmtTime(rt), 5, retNote);
 
     // Prefetch silently in background — button stays visible throughout
     _prefetchedUrl = null;
@@ -1860,9 +1871,9 @@ function _buildSearchPayload() {
     return Promise.resolve({
         parkingAirport:     state.airport.code,
         parkingDropoffDate: fmtISO(state.dropoffDate),
-        parkingDropoffTime: pad2(state.dropoffTime) + ':00',
+        parkingDropoffTime: fmtTime(state.dropoffTime),
         parkingReturnDate:  fmtISO(state.returnDate),
-        parkingReturnTime:  pad2(state.returnTime) + ':00',
+        parkingReturnTime:  fmtTime(state.returnTime),
         outboundFlight: df ? {
             code:              df.code,
             reference:         df.reference,
