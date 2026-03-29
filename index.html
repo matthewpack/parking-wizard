@@ -77,7 +77,7 @@
         }
 
         /* ── Container ── */
-        .container { max-width: 620px; width: 100%; margin: 0 auto; }
+        .container { max-width: 620px; width: 100%; margin: 0 auto; overflow-x: hidden; }
 
         /* ── Hero image — full viewport width between header and steps ── */
         .hero-wrap { width: 100%; line-height: 0; }
@@ -155,7 +155,7 @@
         .rc-code { font-size: .9rem; font-weight: 800; color: var(--purple); }
         .rc-name { font-size: .85rem; font-weight: 400; color: var(--text); }
         .rc-x {
-            font-size: .85rem; color: var(--muted); padding: 2px 6px;
+            font-size: .65rem; color: var(--muted); padding: 2px 6px;
             border-radius: 10px; line-height: 1; cursor: pointer;
             background: none; border: none; font-family: inherit;
             -webkit-tap-highlight-color: transparent;
@@ -205,8 +205,8 @@
         }
         .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
         .cal-dow {
-            font-size: .75rem; font-weight: 700; text-align: center; color: var(--muted);
-            padding: .3rem 0; text-transform: uppercase; letter-spacing: .04em;
+            font-size: .68rem; font-weight: 700; text-align: center; color: var(--muted);
+            padding: .3rem 0; text-transform: uppercase;
         }
         .cal-day {
             min-height: 40px; display: flex; align-items: center; justify-content: center;
@@ -390,9 +390,9 @@
         .review-row { display: flex; align-items: center; padding: .875rem 0; border-bottom: 1px solid #f0f4f8; }
         .review-row:last-child { border-bottom: none; }
         .rr-icon { font-size: 1rem; margin-right: .75rem; flex-shrink: 0; }
-        .rr-body { flex: 1; min-width: 0; }
+        .rr-body { flex: 1; min-width: 0; overflow-wrap: break-word; word-break: break-word; }
         .rr-lbl  { font-size: .82rem; color: var(--muted); }
-        .rr-val  { font-size: .95rem; font-weight: 600; color: var(--text); margin-top: .1rem; }
+        .rr-val  { font-size: .95rem; font-weight: 600; color: var(--text); margin-top: .1rem; overflow-wrap: break-word; }
         .rr-flight-note { font-size: .82rem; color: var(--muted); margin-top: .25rem; }
         .rr-edit { background: none; border: none; color: var(--muted); cursor: pointer; padding: .375rem; border-radius: 5px; font-size: .95rem; transition: background .12s; flex-shrink: 0; }
         .rr-edit:hover { background: #f0f4f8; color: var(--text); }
@@ -536,193 +536,162 @@
 </main>
 
 <script>
-// ─── Airport data ──────────────────────────────────────────────────────────────
-// short = step-1 label (friendly, no code)
-// full  = used in wizard context, review & summary (official name, matching HX)
 const POPULAR = [
-    { code:'LHR', short:'Heathrow',             full:'London Heathrow Airport',                lat:51.4706, lon:-0.4619 },
-    { code:'LGW', short:'Gatwick',              full:'London Gatwick Airport',                 lat:51.1537, lon:-0.1821 },
-    { code:'MAN', short:'Manchester',           full:'Manchester Airport',                     lat:53.3537, lon:-2.2750 },
-    { code:'STN', short:'Stansted',             full:'London Stansted Airport',                lat:51.8850, lon: 0.2350 },
-    { code:'LTN', short:'Luton',               full:'London Luton Airport',                   lat:51.8747, lon:-0.3683 },
-    { code:'BHX', short:'Birmingham',           full:'Birmingham Airport',                     lat:52.4539, lon:-1.7480 },
-    { code:'EDI', short:'Edinburgh',            full:'Edinburgh Airport',                      lat:55.9500, lon:-3.3725 },
-    { code:'GLA', short:'Glasgow International',full:'Glasgow International Airport',          lat:55.8719, lon:-4.4330 },
+{ code:'LHR', short:'Heathrow', full:'London Heathrow Airport', lat:51.4706, lon:-0.4619 },
+{ code:'LGW', short:'Gatwick', full:'London Gatwick Airport', lat:51.1537, lon:-0.1821 },
+{ code:'MAN', short:'Manchester', full:'Manchester Airport', lat:53.3537, lon:-2.2750 },
+{ code:'STN', short:'Stansted', full:'London Stansted Airport', lat:51.8850, lon: 0.2350 },
+{ code:'LTN', short:'Luton', full:'London Luton Airport', lat:51.8747, lon:-0.3683 },
+{ code:'BHX', short:'Birmingham', full:'Birmingham Airport', lat:52.4539, lon:-1.7480 },
+{ code:'EDI', short:'Edinburgh', full:'Edinburgh Airport', lat:55.9500, lon:-3.3725 },
+{ code:'GLA', short:'Glasgow International',full:'Glasgow International Airport', lat:55.8719, lon:-4.4330 },
 ];
 const OTHERS = [
-    { code:'ABZ', short:'Aberdeen',             full:'Aberdeen Airport',                       lat:57.2019, lon:-2.1978 },
-    { code:'BHD', short:'Belfast City',         full:'Belfast City Airport (George Best)',     lat:54.6175, lon:-5.8725 },
-    { code:'BFS', short:'Belfast International',full:'Belfast International Airport',          lat:54.6575, lon:-6.2158 },
-    { code:'BOH', short:'Bournemouth',          full:'Bournemouth Airport',                    lat:50.7800, lon:-1.8425 },
-    { code:'BRS', short:'Bristol',              full:'Bristol Airport',                        lat:51.3827, lon:-2.7191 },
-    { code:'CWL', short:'Cardiff',              full:'Cardiff Airport',                        lat:51.3967, lon:-3.3433 },
-    { code:'DSA', short:'Doncaster Sheffield',  full:'Doncaster-Sheffield Airport (Robin Hood)',lat:53.4805, lon:-1.0106 },
-    { code:'DUB', short:'Dublin',               full:'Dublin Airport',                         lat:53.4213, lon:-6.2701 },
-    { code:'EMA', short:'East Midlands',        full:'East Midlands Airport',                  lat:52.8311, lon:-1.3281 },
-    { code:'EXT', short:'Exeter',               full:'Exeter Airport',                         lat:50.7344, lon:-3.4139 },
-    { code:'PIK', short:'Glasgow Prestwick',    full:'Glasgow Prestwick Airport',              lat:55.5094, lon:-4.5869 },
-    { code:'HUY', short:'Humberside',           full:'Humberside Airport',                     lat:53.5744, lon:-0.3508 },
-    { code:'LBA', short:'Leeds Bradford',       full:'Leeds Bradford Airport',                 lat:53.8659, lon:-1.6606 },
-    { code:'LPL', short:'Liverpool',            full:'Liverpool John Lennon Airport',          lat:53.3336, lon:-2.8497 },
-    { code:'LCY', short:'London City',          full:'London City Airport',                    lat:51.5048, lon:-0.0495 },
-    { code:'NCL', short:'Newcastle',            full:'Newcastle Airport',                      lat:55.0375, lon:-1.6917 },
-    { code:'NWI', short:'Norwich',              full:'Norwich Airport',                        lat:52.6758, lon: 1.2828 },
-    { code:'SNN', short:'Shannon',              full:'Shannon Airport',                        lat:52.7020, lon:-8.9248 },
-    { code:'SOU', short:'Southampton',          full:'Southampton Airport',                    lat:50.9503, lon:-1.3569 },
-    { code:'SEN', short:'Southend',             full:'London Southend Airport',                lat:51.5714, lon: 0.6956 },
-    { code:'INV', short:'Inverness',            full:'Inverness Airport',                      lat:57.5425, lon:-4.0475 },
-    { code:'MME', short:'Teesside International',full:'Teesside International Airport',        lat:54.5092, lon:-1.4294 },
-    { code:'NQY', short:'Newquay Cornwall',     full:'Newquay Cornwall Airport',               lat:50.4406, lon:-4.9955 },
+{ code:'ABZ', short:'Aberdeen', full:'Aberdeen Airport', lat:57.2019, lon:-2.1978 },
+{ code:'BHD', short:'Belfast City', full:'Belfast City Airport (George Best)', lat:54.6175, lon:-5.8725 },
+{ code:'BFS', short:'Belfast International',full:'Belfast International Airport', lat:54.6575, lon:-6.2158 },
+{ code:'BOH', short:'Bournemouth', full:'Bournemouth Airport', lat:50.7800, lon:-1.8425 },
+{ code:'BRS', short:'Bristol', full:'Bristol Airport', lat:51.3827, lon:-2.7191 },
+{ code:'CWL', short:'Cardiff', full:'Cardiff Airport', lat:51.3967, lon:-3.3433 },
+{ code:'DSA', short:'Doncaster Sheffield', full:'Doncaster-Sheffield Airport (Robin Hood)',lat:53.4805, lon:-1.0106 },
+{ code:'DUB', short:'Dublin', full:'Dublin Airport', lat:53.4213, lon:-6.2701 },
+{ code:'EMA', short:'East Midlands', full:'East Midlands Airport', lat:52.8311, lon:-1.3281 },
+{ code:'EXT', short:'Exeter', full:'Exeter Airport', lat:50.7344, lon:-3.4139 },
+{ code:'PIK', short:'Glasgow Prestwick', full:'Glasgow Prestwick Airport', lat:55.5094, lon:-4.5869 },
+{ code:'HUY', short:'Humberside', full:'Humberside Airport', lat:53.5744, lon:-0.3508 },
+{ code:'LBA', short:'Leeds Bradford', full:'Leeds Bradford Airport', lat:53.8659, lon:-1.6606 },
+{ code:'LPL', short:'Liverpool', full:'Liverpool John Lennon Airport', lat:53.3336, lon:-2.8497 },
+{ code:'LCY', short:'London City', full:'London City Airport', lat:51.5048, lon:-0.0495 },
+{ code:'NCL', short:'Newcastle', full:'Newcastle Airport', lat:55.0375, lon:-1.6917 },
+{ code:'NWI', short:'Norwich', full:'Norwich Airport', lat:52.6758, lon: 1.2828 },
+{ code:'SNN', short:'Shannon', full:'Shannon Airport', lat:52.7020, lon:-8.9248 },
+{ code:'SOU', short:'Southampton', full:'Southampton Airport', lat:50.9503, lon:-1.3569 },
+{ code:'SEN', short:'Southend', full:'London Southend Airport', lat:51.5714, lon: 0.6956 },
+{ code:'INV', short:'Inverness', full:'Inverness Airport', lat:57.5425, lon:-4.0475 },
+{ code:'MME', short:'Teesside International',full:'Teesside International Airport', lat:54.5092, lon:-1.4294 },
+{ code:'NQY', short:'Newquay Cornwall', full:'Newquay Cornwall Airport', lat:50.4406, lon:-4.9955 },
 ];
 const ALL = POPULAR.concat(OTHERS);
-
-// ─── Flight API ────────────────────────────────────────────────────────────────
-// Destination alias map: common holiday resort names → searchable city/airport.
-// Customers type where they're going, not the IATA code.
 const DEST_ALIASES = {
-    'benidorm':'alicante', 'costa blanca':'alicante',
-    'magaluf':'palma', 'alcudia':'palma', 'mallorca':'palma', 'majorca':'palma',
-    'zante':'zakynthos', 'laganas':'zakynthos',
-    'kavos':'corfu', 'sidari':'corfu',
-    'malia':'heraklion', 'hersonissos':'heraklion', 'crete':'heraklion',
-    'mykonos town':'mykonos',
-    'skiathos town':'skiathos',
-    'kefalonia':'cephalonia',
-    'gran canaria':'las palmas',
-    'tenerife south':'tenerife', 'tenerife norte':'tenerife',
-    'preveza':'aktion', 'lefkada':'aktion',
-    'turin':'turin',  // identity — just ensures "tur" suggestions rank it
+'benidorm':'alicante', 'costa blanca':'alicante',
+'magaluf':'palma', 'alcudia':'palma', 'mallorca':'palma', 'majorca':'palma',
+'zante':'zakynthos', 'laganas':'zakynthos',
+'kavos':'corfu', 'sidari':'corfu',
+'malia':'heraklion', 'hersonissos':'heraklion', 'crete':'heraklion',
+'mykonos town':'mykonos',
+'skiathos town':'skiathos',
+'kefalonia':'cephalonia',
+'gran canaria':'las palmas',
+'tenerife south':'tenerife', 'tenerife norte':'tenerife',
+'preveza':'aktion', 'lefkada':'aktion',
+'turin':'turin', // identity — just ensures "tur" suggestions rank it
 };
-
-// Airline ICAO code → airline name as it appears in the API response.
-// The HX API returns IATA carrier codes (U2, BA…) not ICAO (EZY, BAW…),
-// so ICAO searches would otherwise return nothing.
 const AIRLINE_ALIASES = {
-    'ezy':'easyjet',  'ejs':'easyjet',
-    'ryr':'ryanair',  'fr':'ryanair',
-    'baw':'british airways',
-    'vir':'virgin atlantic',  'vs':'virgin atlantic',
-    'thy':'turkish airlines',
-    'dlh':'lufthansa',
-    'afr':'air france',
-    'klm':'klm',
-    'ibk':'iberia express',
-    'vle':'vueling',
-    'jet2':'jet2.com',
-    'tom':'tui',  'tfl':'tui',
-    'tcx':'tui',  'tui':'tui',
-    'wiz':'wizz air',  'wzz':'wizz air',
-    'nax':'norwegian',
-    'aee':'aegean',
-    'ath':'aegean',
+'ezy':'easyjet', 'ejs':'easyjet',
+'ryr':'ryanair', 'fr':'ryanair',
+'baw':'british airways',
+'vir':'virgin atlantic', 'vs':'virgin atlantic',
+'thy':'turkish airlines',
+'dlh':'lufthansa',
+'afr':'air france',
+'klm':'klm',
+'ibk':'iberia express',
+'vle':'vueling',
+'jet2':'jet2.com',
+'tom':'tui', 'tfl':'tui',
+'tcx':'tui', 'tui':'tui',
+'wiz':'wizz air', 'wzz':'wizz air',
+'nax':'norwegian',
+'aee':'aegean',
+'ath':'aegean',
 };
-
-// In-session cache so navigating back/forward doesn't re-fetch
-// Key: "LGW:2026-04-18:out" or "TRN:2026-04-28:in:LGW"
-const _flightCache     = new Map(); // key → Promise<flights[]>
+const _flightCache = new Map(); // key → Promise<flights[]>
 const _flightDataCache = new Map(); // key → flights[] (resolved, survives sessionStorage round-trip)
-
-// opts.destination → return-flight mode (flights arriving at opts.destination)
-// opts.query       → search string forwarded to dock-yard API
 function fetchFlights(airportCode, date, opts = {}) {
-    const { destination = '', query = '' } = opts;
-    const dateStr = fmtISO(date);
-    const mode    = destination ? 'return' : 'outbound';
-    const key     = airportCode + ':' + dateStr + (destination ? ':in:' + destination : ':out') + (query ? ':q:' + query : '');
-    if (_flightCache.has(key)) return _flightCache.get(key);
-
-    const params = new URLSearchParams({ location: airportCode, date: dateStr });
-    if (destination) params.set('destination', destination);
-    if (query)       params.set('query', query);
-
-    const p = fetch('/api/flights?' + params)
-        .then(r => r.ok ? r.json() : Promise.reject(r.status))
-        .then(raw => normaliseFlights(raw, dateStr, mode))
-        .then(flights => { _flightDataCache.set(key, flights); return flights; })
-        .catch(e => { console.warn('[flights] fetch failed', e); return []; });
-    _flightCache.set(key, p);
-    return p;
+const { destination = '', query = '' } = opts;
+const dateStr = fmtISO(date);
+const mode = destination ? 'return' : 'outbound';
+const key = airportCode + ':' + dateStr + (destination ? ':in:' + destination : ':out') + (query ? ':q:' + query : '');
+if (_flightCache.has(key)) return _flightCache.get(key);
+const params = new URLSearchParams({ location: airportCode, date: dateStr });
+if (destination) params.set('destination', destination);
+if (query) params.set('query', query);
+const p = fetch('/api/flights?' + params)
+.then(r => r.ok ? r.json() : Promise.reject(r.status))
+.then(raw => normaliseFlights(raw, dateStr, mode))
+.then(flights => { _flightDataCache.set(key, flights); return flights; })
+.catch(e => { console.warn('[flights] fetch failed', e); return []; });
+_flightCache.set(key, p);
+return p;
 }
-
-// mode: 'outbound' → terminal is at departure airport (LGW)
-//       'return'   → terminal is at arrival airport  (LGW)
 function normaliseFlights(raw, dateStr, mode) {
-    if (!Array.isArray(raw)) return [];
-
-    // Build a reference → carrier name map so codeshares can say "operated by X"
-    const refToCarrier = {};
-    raw.forEach(e => {
-        if (e.flight?.reference && e.flight?.carrier?.name) {
-            refToCarrier[e.flight.reference] = e.flight.carrier.name;
-        }
-    });
-
-    return raw
-        .map(e => {
-            const dep = e.departure || {};
-            const arr = e.arrival   || {};
-            const terminal = mode === 'return' ? (arr.terminal || '') : (dep.terminal || '');
-            const operatedBy = e.info?.is_codeshare && e.info?.codeshare_operator_reference
-                ? refToCarrier[e.info.codeshare_operator_reference] || ''
-                : '';
-            const timeStr  = mode === 'return' ? (arr.time || dep.time || '00:00') : (dep.time || '00:00');
-            const [tH, tM] = timeStr.split(':');
-            return {
-                code:          e.flight?.code || '',
-                reference:     e.flight?.reference || '',
-                airline:       e.flight?.carrier?.name || e.flight?.carrier?.code || '',
-                airlineCode:   e.flight?.carrier?.code || '',
-                carrierIcao:   e.flight?.carrier?.icao || '',
-                flightIcao:    (e.flight?.icao || []).join(' '),
-                matched:       e.flight?.matched || '',
-                typeahead:     e.typeahead || '',
-                dest:          arr.airport || arr.city || '',
-                destCountry:   arr.country || '',
-                destAirport:   arr.airport_iata || '',
-                origin:        dep.airport || dep.city || '',
-                originCountry: dep.country || '',
-                originAirport: dep.airport_iata || '',
-                depHour:       parseInt((dep.time || '00:00').split(':')[0], 10) || 0,
-                depMinute:     parseInt((dep.time || '00:00').split(':')[1], 10) || 0,
-                hour:          parseInt(tH, 10) || 0,
-                minute:        parseInt(tM, 10) || 0,
-                terminal,
-                isCodeshare:   !!e.info?.is_codeshare,
-                operatedBy,
-                tailfin:       e.flight?.carrier?.tailfinImage || e.flight?.carrier?.tail_image || '',
-                departureDate: dateStr,
-                // arrivalDate: next day if arrival time wraps past midnight vs departure
-                arrivalDate: (() => {
-                    const dH = parseInt((dep.time || '00:00').split(':')[0], 10) || 0;
-                    const aH = parseInt(tH, 10) || 0;
-                    const aM = parseInt(tM, 10) || 0;
-                    const dM = parseInt((dep.time || '00:00').split(':')[1], 10) || 0;
-                    const nextDay = (aH * 60 + aM) < (dH * 60 + dM);
-                    if (!nextDay) return dateStr;
-                    const base = parseISO(dateStr);
-                    return fmtISO(new Date(base.getFullYear(), base.getMonth(), base.getDate() + 1));
-                })(),
-                _raw:          e,
-            };
-        })
-        .sort((a, b) => a.hour !== b.hour ? a.hour - b.hour : a.minute - b.minute);
+if (!Array.isArray(raw)) return [];
+const refToCarrier = {};
+raw.forEach(e => {
+if (e.flight?.reference && e.flight?.carrier?.name) {
+refToCarrier[e.flight.reference] = e.flight.carrier.name;
 }
-
-// ─── (old flight templates removed — now using real API) ──────────────────────
-// kept section comment so line-numbers stay stable for editors
-const FLIGHT_TEMPLATES = {
-    LHR:{ al:['BA','VS','AA','EK','LH'],  dests:['New York','Dubai','Los Angeles','Sydney','Singapore','Toronto','Hong Kong','Cape Town','Johannesburg','Mumbai'] },
-    LGW:{ al:['EZY','BA','TOM','FR','DY'],dests:['Málaga','Alicante','Faro','Barcelona','Tenerife','Ibiza','Amsterdam','Geneva','Rome','Lanzarote'] },
-    MAN:{ al:['EZY','TOM','BA','BY','FR'],dests:['Tenerife','Lanzarote','Alicante','Faro','New York','Dubai','Málaga','Barcelona','Majorca','Corfu'] },
-    STN:{ al:['FR','EZY','W6','VY'],      dests:['Dublin','Faro','Wrocław','Barcelona','Rome','Alicante','Málaga','Lisbon','Tenerife','Kraków'] },
-    LTN:{ al:['EZY','W6','TOM'],          dests:['Amsterdam','Alicante','Geneva','Faro','Málaga','Ibiza','Barcelona','Rome','Split','Athens'] },
-    BHX:{ al:['EZY','TOM','BY','FR'],     dests:['Alicante','Faro','Tenerife','Málaga','Ibiza','Majorca','Gran Canaria','Amsterdam','Dubai'] },
-    EDI:{ al:['EZY','FR','BA','LG'],      dests:['Amsterdam','Alicante','Barcelona','Dublin','London','Paris','Faro','Tenerife','New York'] },
-    GLA:{ al:['EZY','FR','BA'],           dests:['London','Dublin','Amsterdam','Alicante','Faro','Tenerife','Lanzarote','Málaga'] },
-    DEFAULT:{ al:['EZY','BA','FR','TOM'], dests:['Amsterdam','Alicante','Faro','Barcelona','Málaga','Tenerife','Dublin','Paris','Rome'] },
+});
+return raw
+.map(e => {
+const dep = e.departure || {};
+const arr = e.arrival || {};
+const terminal = mode === 'return' ? (arr.terminal || '') : (dep.terminal || '');
+const operatedBy = e.info?.is_codeshare && e.info?.codeshare_operator_reference
+? refToCarrier[e.info.codeshare_operator_reference] || ''
+: '';
+const timeStr = mode === 'return' ? (arr.time || dep.time || '00:00') : (dep.time || '00:00');
+const [tH, tM] = timeStr.split(':');
+return {
+code: e.flight?.code || '',
+reference: e.flight?.reference || '',
+airline: e.flight?.carrier?.name || e.flight?.carrier?.code || '',
+airlineCode: e.flight?.carrier?.code || '',
+carrierIcao: e.flight?.carrier?.icao || '',
+flightIcao: (e.flight?.icao || []).join(' '),
+matched: e.flight?.matched || '',
+typeahead: e.typeahead || '',
+dest: arr.airport || arr.city || '',
+destCountry: arr.country || '',
+destAirport: arr.airport_iata || '',
+origin: dep.airport || dep.city || '',
+originCountry: dep.country || '',
+originAirport: dep.airport_iata || '',
+depHour: parseInt((dep.time || '00:00').split(':')[0], 10) || 0,
+depMinute: parseInt((dep.time || '00:00').split(':')[1], 10) || 0,
+hour: parseInt(tH, 10) || 0,
+minute: parseInt(tM, 10) || 0,
+terminal,
+isCodeshare: !!e.info?.is_codeshare,
+operatedBy,
+tailfin: e.flight?.carrier?.tailfinImage || e.flight?.carrier?.tail_image || '',
+departureDate: dateStr,
+arrivalDate: (() => {
+const dH = parseInt((dep.time || '00:00').split(':')[0], 10) || 0;
+const aH = parseInt(tH, 10) || 0;
+const aM = parseInt(tM, 10) || 0;
+const dM = parseInt((dep.time || '00:00').split(':')[1], 10) || 0;
+const nextDay = (aH * 60 + aM) < (dH * 60 + dM);
+if (!nextDay) return dateStr;
+const base = parseISO(dateStr);
+return fmtISO(new Date(base.getFullYear(), base.getMonth(), base.getDate() + 1));
+})(),
+_raw: e,
 };
-
-
+})
+.sort((a, b) => a.hour !== b.hour ? a.hour - b.hour : a.minute - b.minute);
+}
+const FLIGHT_TEMPLATES = {
+LHR:{ al:['BA','VS','AA','EK','LH'], dests:['New York','Dubai','Los Angeles','Sydney','Singapore','Toronto','Hong Kong','Cape Town','Johannesburg','Mumbai'] },
+LGW:{ al:['EZY','BA','TOM','FR','DY'],dests:['Málaga','Alicante','Faro','Barcelona','Tenerife','Ibiza','Amsterdam','Geneva','Rome','Lanzarote'] },
+MAN:{ al:['EZY','TOM','BA','BY','FR'],dests:['Tenerife','Lanzarote','Alicante','Faro','New York','Dubai','Málaga','Barcelona','Majorca','Corfu'] },
+STN:{ al:['FR','EZY','W6','VY'], dests:['Dublin','Faro','Wrocław','Barcelona','Rome','Alicante','Málaga','Lisbon','Tenerife','Kraków'] },
+LTN:{ al:['EZY','W6','TOM'], dests:['Amsterdam','Alicante','Geneva','Faro','Málaga','Ibiza','Barcelona','Rome','Split','Athens'] },
+BHX:{ al:['EZY','TOM','BY','FR'], dests:['Alicante','Faro','Tenerife','Málaga','Ibiza','Majorca','Gran Canaria','Amsterdam','Dubai'] },
+EDI:{ al:['EZY','FR','BA','LG'], dests:['Amsterdam','Alicante','Barcelona','Dublin','London','Paris','Faro','Tenerife','New York'] },
+GLA:{ al:['EZY','FR','BA'], dests:['London','Dublin','Amsterdam','Alicante','Faro','Tenerife','Lanzarote','Málaga'] },
+DEFAULT:{ al:['EZY','BA','FR','TOM'], dests:['Amsterdam','Alicante','Faro','Barcelona','Málaga','Tenerife','Dublin','Paris','Rome'] },
+};
 // ─── State ─────────────────────────────────────────────────────────────────────
 const state = { airport:null, dropoffDate:null, dropoffTime:null, dropoffFlight:null, returnDate:null, returnTime:null, returnFlight:null };
 let currentStep = 1;
