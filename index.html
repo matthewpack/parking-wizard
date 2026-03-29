@@ -1431,6 +1431,11 @@ function filterFlights(containerId, type) {
 
     if (clearBtn) clearBtn.style.display = q ? '' : 'none';
 
+    // Snap the search bar to the top of the viewport so filtered results
+    // always appear directly beneath it, not above the current scroll position.
+    const wrap = document.getElementById(_searchWrapId(containerId));
+    if (wrap && q) wrap.scrollIntoView({ behavior: 'instant', block: 'start' });
+
     if (!q) {
         const totalGroups = _groupCodeshares(all, all).length;
         _setSearchCount(containerId, totalGroups, totalGroups);
