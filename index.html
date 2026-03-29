@@ -230,7 +230,7 @@
         .flight-row:hover       { background: var(--purple-l); }
         .flight-row.selected    { background: var(--purple-l); }
         .flight-row.confirming  { background: var(--green-l); }
-        .fr-code  { font-size: .75rem; font-weight: 700; color: var(--muted); width: 3.5rem; flex-shrink: 0; font-family: ui-monospace, monospace; }
+        .fr-code  { font-size: .75rem; font-weight: 700; color: var(--muted); min-width: 3.5rem; width: 3.5rem; flex-shrink: 0; font-family: ui-monospace, monospace; line-height: 1.6; }
         .fr-time-col { display: flex; flex-direction: column; width: 3.25rem; flex-shrink: 0; }
         .fr-time  { font-size: 1.25rem; font-weight: 800; color: var(--purple); line-height: 1.1; }
         .fr-time-sub { font-size: .62rem; color: var(--muted); line-height: 1.4; white-space: nowrap; }
@@ -1278,14 +1278,14 @@ function _flightRowsHtml(subset, allFlights, type) {
                     </div>`;
         } else {
             const noteCountry  = f.destCountry || '';
-            const extraCodes   = allCodes.filter(c => c !== f.code).map(esc).join(', ');
-            const noteParts    = [noteCountry, extraCodes].filter(Boolean).join(' · ');
+            const noteParts    = noteCountry ? esc(noteCountry) : '';
+            const stackedCodes = allCodes.map(esc).join('<br>');
             const dateSubLabel = f.departureDate ? fmtShort(parseISO(f.departureDate)) : '';
             html += `<div class="flight-row${isSel ? ' selected' : ''}" role="option" aria-selected="${isSel}" tabindex="0"
                          data-idx="${rawIdx}"
                          onclick="pickFlight('${type}',${rawIdx})"
                          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickFlight('${type}',${rawIdx});}">
-                        <span class="fr-code">${esc(f.code)}</span>
+                        <span class="fr-code">${stackedCodes}</span>
                         <span class="fr-time-col">
                             <span class="fr-time">${pad2(f.hour)}:${pad2(f.minute)}</span>
                             ${dateSubLabel ? `<span class="fr-time-sub">${esc(dateSubLabel)}</span>` : ''}
