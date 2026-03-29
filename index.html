@@ -322,7 +322,8 @@
         .flt-return-search { border-left: none !important; border-right: none !important; border-top: none !important;
             border-radius: 0 !important; margin-bottom: 0 !important; border-bottom: 1px solid var(--border) !important; }
         /* ── Flight date strip ── */
-        .flt-date-strip { display: flex; gap: .5rem; margin-bottom: 0; padding: .5rem; border-bottom: 1px solid var(--border); background: #f7f6fb; }
+        .flt-date-strip { display: flex; gap: .5rem; margin-bottom: .625rem; padding: .25rem 0; }
+        .flt-return-wrap .flt-date-strip { padding: .5rem; background: #f7f6fb; border-bottom: 1px solid var(--border); margin-bottom: 0; }
         .flt-date-btn {
             flex: 1; padding: .55rem .25rem; border: 1.5px solid var(--border);
             border-radius: 8px; font-size: .73rem; font-weight: 600; text-align: center;
@@ -454,15 +455,13 @@
                       onclick="skipFlight('outbound')"
                       onkeydown="if(event.key==='Enter')skipFlight('outbound')">Skip</span>
             </div>
-            <div class="flt-return-wrap">
-                <div class="flt-date-strip" id="outboundDateStrip"></div>
-                <div class="flt-search-wrap flt-return-search" id="outboundSearchWrap">
-                    <input type="text" id="outboundFlightSearch" class="flt-search-inp" placeholder="Search destination, time or airline…" autocomplete="off" oninput="filterFlights('outboundFlightList','outbound')">
-                    <span class="flt-search-count" id="outboundFlightCount"></span>
-                    <button class="flt-search-clear" id="outboundSearchClear" onclick="clearFlightSearch('outboundFlightList','outbound')" aria-label="Clear search" style="display:none">✕</button>
-                </div>
-                <div id="outboundFlightList" role="listbox"></div>
+            <div class="flt-date-strip" id="outboundDateStrip"></div>
+            <div class="flt-search-wrap" id="outboundSearchWrap">
+                <input type="text" id="outboundFlightSearch" class="flt-search-inp" placeholder="Search destination, time or airline…" autocomplete="off" oninput="filterFlights('outboundFlightList','outbound')">
+                <span class="flt-search-count" id="outboundFlightCount"></span>
+                <button class="flt-search-clear" id="outboundSearchClear" onclick="clearFlightSearch('outboundFlightList','outbound')" aria-label="Clear search" style="display:none">✕</button>
             </div>
+            <div id="outboundFlightList" role="listbox"></div>
         </div>
     </section>
 
