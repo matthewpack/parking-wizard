@@ -700,7 +700,8 @@ const state = { airport:null, dropoffDate:null, dropoffTime:null, dropoffFlight:
 let currentStep = 1;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
-const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DAYS      = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const FULL_DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const SMON   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function today()      { const d=new Date(); d.setHours(0,0,0,0); return d; }
@@ -712,6 +713,10 @@ function toDDMMYY(d)  { return pad2(d.getDate())+'/'+pad2(d.getMonth()+1)+'/'+St
 function toHuman(d)   { const n=d.getDate(),s=(n>=11&&n<=13)?'th':(['th','st','nd','rd'][n%10]||'th'); return DAYS[d.getDay()]+' '+n+s+' '+SMON[d.getMonth()]+' '+String(d.getFullYear()).slice(2); }
 function toHHMM(h)    { return pad2(h)+'00'; }
 function pad2(n)      { return String(n).padStart(2,'0'); }
+// Full natural date: "Saturday 11th April 2026"
+function fmtNatural(d){ const n=d.getDate(),s=(n>=11&&n<=13)?'th':(['th','st','nd','rd'][n%10]||'th'); return FULL_DAYS[d.getDay()]+' '+n+s+' '+MONTHS[d.getMonth()]+' '+d.getFullYear(); }
+// Terminal label: N→North Terminal, S→South Terminal, else Terminal X
+function fmtTerminal(t){ if(!t) return ''; if(t==='N') return 'North Terminal'; if(t==='S') return 'South Terminal'; return 'Terminal '+t; }
 function esc(s)       { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ─── Tracking ──────────────────────────────────────────────────────────────────
@@ -1623,26 +1628,24 @@ function buildReview() {
     const { airport:a, dropoffDate:dd, dropoffTime:dt, dropoffFlight:df, returnDate:rd, returnTime:rt, returnFlight:rf } = state;
     const nights = Math.round((rd - dd) / 86400000);
 
-    document.getElementById('durationCard').innerHTML =
-        `<div class="duration-card">
-            <div class="dc-nights">${nights} night${nights===1?'':'s'}</div>
-            <div class="dc-dates">${fmtDisplay(dd)} &ndash; ${fmtDisplay(rd)}</div>
-         </div>`;
+    document.getElementById('durationCard').innerHTML = '';
 
     const rn = (txt) => `<div class="rr-flight-note">${txt}</div>`;
 
-    const dropNote = df
-        ? rn(`to catch flight ${esc(df.code)} to ${esc(df.dest)}, departing ${pad2(df.hour)}:${pad2(df.minute)}`)
-        : '';
+    const dropNote = df ? (() => {
+        const term = df.terminal ? fmtTerminal(df.terminal) + ', ' : '';
+        return rn(`To catch your ${esc(df.airline || df.code)} flight ${esc(df.code)} to ${esc(df.dest)}, departing ${term}at ${pad2(df.depHour)}:${pad2(df.depMinute)}`);
+    })() : '';
 
-    const retNote = rf
-        ? rn(`returning on flight ${esc(rf.code)}, arrives back at ${esc(a.short)} ${pad2(rf.hour)}:${pad2(rf.minute)}`)
-        : '';
+    const retNote = rf ? (() => {
+        const term = rf.terminal ? ', arriving ' + fmtTerminal(rf.terminal) : '';
+        return rn(`Your ${esc(rf.airline || rf.code)} flight ${esc(rf.code)} from ${esc(rf.origin || rf.originAirport)}${term} at ${pad2(rf.hour)}:${pad2(rf.minute)}`);
+    })() : '';
 
     document.getElementById('reviewRows').innerHTML =
         rrRow('✈️', 'Airport',        a.full + ' (' + a.code + ')', 1) +
-        rrRow('🚗', 'Dropping off car', fmtDisplay(dd) + ' at ' + pad2(dt) + ':00', 2, dropNote) +
-        rrRow('🏠', 'Collecting car',   fmtDisplay(rd) + ' at ' + pad2(rt) + ':00', 5, retNote);
+        rrRow('🚗', 'Dropping off car', fmtNatural(dd) + ' at ' + pad2(dt) + ':00', 2, dropNote) +
+        rrRow('🏠', 'Collecting car',   fmtNatural(rd) + ' at ' + pad2(rt) + ':00', 5, retNote);
 
     // Prefetch: fire the search API call early so redirect is instant when user taps Search
     _buildSearchPayload().then(payload => {
