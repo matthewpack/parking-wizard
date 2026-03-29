@@ -1202,7 +1202,8 @@ function setupDropoffTime() {
         const airportName = state.airport?.full || state.airport?.name || '';
         const cityNote   = f.destCity && f.destCity !== f.dest ? ', ' + f.destCity : '';
         const termNote   = f.terminal ? ' · ' + fmtTerminal(f.terminal) : '';
-        hint.textContent = '✈ ' + f.code + ' to ' + f.dest + cityNote + ' · departs ' + pad2(f.depHour) + ':' + pad2(f.depMinute) + (airportName ? ' · ' + airportName : '') + termNote;
+        const depDateNote = f.departureDate ? ' · ' + fmtShort(parseISO(f.departureDate)) : '';
+        hint.textContent = '✈ ' + f.code + ' to ' + f.dest + cityNote + ' · departs ' + pad2(f.depHour) + ':' + pad2(f.depMinute) + depDateNote + (airportName ? ' · ' + airportName : '') + termNote;
         hint.classList.add('visible');
     } else {
         hint.classList.remove('visible');
@@ -1328,7 +1329,8 @@ function setupReturnTime() {
         const f = state.returnFlight;
         const airportName = state.airport?.full || state.airport?.name || '';
         const termNote = f.terminal ? ' · ' + fmtTerminal(f.terminal) : '';
-        hint.textContent = '✈ ' + f.code + ' lands ' + pad2(f.hour) + ':' + pad2(f.minute) + (airportName ? ' · ' + airportName : '') + termNote;
+        const arrDateNote = (f.arrivalDate || f.departureDate) ? ' · ' + fmtShort(parseISO(f.arrivalDate || f.departureDate)) : '';
+        hint.textContent = '✈ ' + f.code + ' lands ' + pad2(f.hour) + ':' + pad2(f.minute) + arrDateNote + (airportName ? ' · ' + airportName : '') + termNote;
         hint.classList.add('visible');
     } else {
         hint.classList.remove('visible');
