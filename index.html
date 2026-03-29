@@ -1150,8 +1150,10 @@ function setupReturnFlight() {
     const ctx = document.getElementById('returnFlightCtx');
     ctx.innerHTML = esc(state.dropoffFlight?.dest || outDest) + ' &rarr; ' + esc(state.airport?.full || state.airport?.name || state.airport?.code || '');
 
-    // Date strip centred on return date
-    _returnViewDate = state.returnDate;
+    // Date strip — restore toggled date if user already picked a flight, otherwise use return date
+    _returnViewDate = (state.returnFlight?.departureDate)
+        ? parseISO(state.returnFlight.departureDate)
+        : state.returnDate;
     _renderReturnDateStrip();
 
     _loadReturnFlights(outDest, _returnViewDate);
@@ -1765,6 +1767,14 @@ window.addEventListener('DOMContentLoaded', () => {
             state.returnFlight  = s.returnFlight  || null;
             applyLocation(52.5, -1.5, 'default');
             renderRecents();
+            // Run GPS check so step 1 renders correctly if user navigates back
+            if (navigator.permissions) {
+                navigator.permissions.query({ name:'geolocation' }).then(r => {
+                    r.state === 'granted' ? gpsLookupSilent() : ipLocationLookup();
+                });
+            } else {
+                ipLocationLookup();
+            }
             goToStep(8, true); // fromHistory=true — don't push, existing #step1…#step8 entries stay intact
             return;
         } catch(e) { sessionStorage.removeItem('wizard_return'); }
