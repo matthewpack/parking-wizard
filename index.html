@@ -231,7 +231,9 @@
         .flight-row.selected    { background: var(--purple-l); }
         .flight-row.confirming  { background: var(--green-l); }
         .fr-code  { font-size: .75rem; font-weight: 700; color: var(--muted); width: 3.5rem; flex-shrink: 0; font-family: ui-monospace, monospace; }
-        .fr-time  { font-size: 1.25rem; font-weight: 800; color: var(--purple); width: 3.25rem; flex-shrink: 0; }
+        .fr-time-col { display: flex; flex-direction: column; width: 3.25rem; flex-shrink: 0; }
+        .fr-time  { font-size: 1.25rem; font-weight: 800; color: var(--purple); line-height: 1.1; }
+        .fr-time-sub { font-size: .62rem; color: var(--muted); line-height: 1.4; white-space: nowrap; }
         .fr-arrow { color: var(--muted); font-size: .8rem; flex-shrink: 0; }
         .fr-dest  { flex: 1; font-size: .875rem; color: var(--text); }
         .fr-note  { font-size: .7rem; color: var(--muted); margin-top: .15rem; }
@@ -1277,17 +1279,22 @@ function _flightRowsHtml(subset, allFlights, type) {
         } else {
             const noteCountry  = f.destCountry || '';
             const extraCodes   = allCodes.filter(c => c !== f.code).map(esc).join(', ');
-            const noteParts    = [noteCountry, termLabel, extraCodes].filter(Boolean).map(esc).join(' · ');
+            const noteParts    = [noteCountry, extraCodes].filter(Boolean).join(' · ');
+            const dateSubLabel = f.departureDate ? fmtShort(parseISO(f.departureDate)) : '';
             html += `<div class="flight-row${isSel ? ' selected' : ''}" role="option" aria-selected="${isSel}" tabindex="0"
                          data-idx="${rawIdx}"
                          onclick="pickFlight('${type}',${rawIdx})"
                          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickFlight('${type}',${rawIdx});}">
                         <span class="fr-code">${esc(f.code)}</span>
-                        <span class="fr-time">${pad2(f.hour)}:${pad2(f.minute)}</span>
+                        <span class="fr-time-col">
+                            <span class="fr-time">${pad2(f.hour)}:${pad2(f.minute)}</span>
+                            ${dateSubLabel ? `<span class="fr-time-sub">${esc(dateSubLabel)}</span>` : ''}
+                            ${termLabel    ? `<span class="fr-time-sub">${esc(termLabel)}</span>`    : ''}
+                        </span>
                         <span class="fr-arrow" aria-hidden="true">→</span>
                         <span class="fr-dest">
                             <div>${esc(f.dest)}</div>
-                            <div class="fr-note">${noteParts}</div>
+                            ${noteParts ? `<div class="fr-note">${noteParts}</div>` : ''}
                         </span>
                         ${tailfinHtml}
                     </div>`;
