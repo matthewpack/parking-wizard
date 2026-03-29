@@ -1639,13 +1639,14 @@ function buildReview() {
 
     const retNote = rf ? (() => {
         const term = rf.terminal ? ', arriving ' + fmtTerminal(rf.terminal) : '';
-        return rn(`Your ${esc(rf.airline || rf.code)} flight ${esc(rf.code)} from ${esc(rf.origin || rf.originAirport)}${term} at ${pad2(rf.hour)}:${pad2(rf.minute)}`);
+        const landTime = rf.minute === 0 ? pad2(rf.hour) + ' o\'clock' : pad2(rf.hour) + ':' + pad2(rf.minute);
+        return rn(`Your ${esc(rf.airline || rf.code)} flight ${esc(rf.code)} from ${esc(rf.origin || rf.originAirport)}${term}, lands at ${landTime}`);
     })() : '';
 
     document.getElementById('reviewRows').innerHTML =
         rrRow('✈️', 'Airport',        a.full + ' (' + a.code + ')', 1) +
-        rrRow('🚗', 'Dropping off car', fmtNatural(dd) + ' at ' + pad2(dt) + ':00', 2, dropNote) +
-        rrRow('🏠', 'Collecting car',   fmtNatural(rd) + ' at ' + pad2(rt) + ':00', 5, retNote);
+        rrRow('🚗', 'Dropping off car',      fmtNatural(dd) + ' at ' + pad2(dt) + ':00', 2, dropNote) +
+        rrRow('🏠', 'Returning to collect car', fmtNatural(rd) + ' at ' + pad2(rt) + ':00', 5, retNote);
 
     // Prefetch: fire the search API call early so redirect is instant when user taps Search
     _buildSearchPayload().then(payload => {
