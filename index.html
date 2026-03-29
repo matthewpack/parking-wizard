@@ -1332,7 +1332,15 @@ function _returnSuggestedHour() {
     const landingDateStr   = f.arrivalDate || f.departureDate || '';
     const collectionDateStr = state.returnDate ? fmtISO(state.returnDate) : '';
     const isOvernightPickup = landingDateStr && collectionDateStr && landingDateStr < collectionDateStr;
-    return isOvernightPickup ? (f.hour + 2) % 24 : Math.min(23, f.hour + 2);
+    if (isOvernightPickup) {
+        // Only carry the +2h wrap forward if the flight lands close enough to midnight
+        // that the wrap genuinely crosses into early morning (hour+2 >= 24).
+        // e.g. lands 23:40 → suggest 01:00 ✓
+        // If the flight lands earlier (e.g. 17:10), +2h stays in the previous evening —
+        // useless for a next-day pickup — so default to 00:00 (start of collection day).
+        return (f.hour + 2 >= 24) ? (f.hour + 2) % 24 : 0;
+    }
+    return Math.min(23, f.hour + 2);
 }
 
 function setupReturnTime() {
