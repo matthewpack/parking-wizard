@@ -205,6 +205,7 @@
             -webkit-tap-highlight-color: transparent;
         }
         .cal-day.past      { color: #c8cfe0; cursor: default; }
+        .cal-day.cal-dropoff { cursor: default; flex-direction: column; line-height: 1.1; gap: 1px; }
         .cal-day.avail     { cursor: pointer; }
         .cal-day.avail:hover { background: var(--purple-l); color: var(--purple); }
         .cal-day.is-today  { font-weight: 700; color: var(--purple); border: 1.5px solid var(--purple-m); }
@@ -1023,38 +1024,52 @@ function haversine(lat1,lon1,lat2,lon2) {
 }
 
 // ─── Calendar date picker ──────────────────────────────────────────────────────
-function renderCalendar(containerId, minDate, maxDays, selectedDate, onPickFn) {
+function renderCalendar(containerId, minDate, maxDays, selectedDate, onPickFn, markedDate) {
     const container = document.getElementById(containerId);
     if (!container) return;
-    const min     = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
-    const maxDate = new Date(min.getFullYear(), min.getMonth(), min.getDate() + maxDays - 1);
+    const min    = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
+    const maxDt  = new Date(min.getFullYear(), min.getMonth(), min.getDate() + maxDays - 1);
+    const markT  = markedDate ? new Date(markedDate.getFullYear(), markedDate.getMonth(), markedDate.getDate()).getTime() : 0;
     let html = '';
     let cur  = new Date(min.getFullYear(), min.getMonth(), 1);
-    while (cur <= maxDate) {
+    while (cur <= maxDt) {
         const yr = cur.getFullYear(), mo = cur.getMonth();
         const daysInMonth = new Date(yr, mo + 1, 0).getDate();
         const offset      = (new Date(yr, mo, 1).getDay() + 6) % 7; // Mon=0
+        // Build cell list: type 'blank' | 'avail' | 'marked'
+        const cells = [];
+        for (let i = 0; i < offset; i++) cells.push({ type: 'blank' });
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(yr, mo, day);
+            if (date > maxDt)             cells.push({ type: 'blank' });
+            else if (date.getTime() < min.getTime()) cells.push({ type: date.getTime() === markT ? 'marked' : 'blank', date, day });
+            else                          cells.push({ type: 'avail', date, day });
+        }
+        while (cells.length % 7 !== 0) cells.push({ type: 'blank' });
+        // Skip entire month if nothing to show
+        if (cells.every(c => c.type === 'blank')) { cur = new Date(yr, mo + 1, 1); continue; }
         html += `<div class="cal-month"><div class="cal-month-name">${MONTHS[mo]} ${yr}</div><div class="cal-grid">`;
         for (const d of ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'])
             html += `<div class="cal-dow">${d}</div>`;
-        for (let i = 0; i < offset; i++)
-            html += `<div class="cal-day"></div>`;
-        for (let day = 1; day <= daysInMonth; day++) {
-            const date   = new Date(yr, mo, day);
-            const isPast = date < min;
-            const isBig  = date > maxDate;
-            const ds     = fmtISO(date);
-            const isSel  = selectedDate && date.getTime() === selectedDate.getTime();
-            const isTod  = date.getTime() === today().getTime();
-            if (isPast || isBig) {
-                html += `<div class="cal-day past">${day}</div>`;
-            } else {
-                let cls = 'cal-day avail';
-                if (isTod) cls += ' is-today';
-                if (isSel) cls += ' is-selected';
-                html += `<div class="${cls}" data-date="${ds}" tabindex="0"
-                              onclick="${onPickFn}('${ds}')"
-                              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${onPickFn}('${ds}');}">${day}</div>`;
+        for (let w = 0; w < cells.length; w += 7) {
+            const week = cells.slice(w, w + 7);
+            if (week.every(c => c.type === 'blank')) continue; // skip entirely-past weeks
+            for (const c of week) {
+                if (c.type === 'blank') {
+                    html += `<div class="cal-day"></div>`;
+                } else if (c.type === 'marked') {
+                    html += `<div class="cal-day cal-dropoff" title="Drop-off date"><span style="font-size:.8em">🚗</span><span style="font-size:.65rem;color:var(--muted)">${c.day}</span></div>`;
+                } else {
+                    const ds   = fmtISO(c.date);
+                    const isSel = selectedDate && c.date.getTime() === selectedDate.getTime();
+                    const isTod = c.date.getTime() === today().getTime();
+                    let cls = 'cal-day avail';
+                    if (isTod) cls += ' is-today';
+                    if (isSel) cls += ' is-selected';
+                    html += `<div class="${cls}" data-date="${ds}" tabindex="0"
+                                  onclick="${onPickFn}('${ds}')"
+                                  onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${onPickFn}('${ds}');}">${c.day}</div>`;
+                }
             }
         }
         html += `</div></div>`;
@@ -1130,7 +1145,7 @@ function setupReturnDate() {
     const minReturn = state.dropoffDate
         ? new Date(state.dropoffDate.getFullYear(), state.dropoffDate.getMonth(), state.dropoffDate.getDate() + 1)
         : today();
-    renderCalendar('returnCalBody', minReturn, 100, state.returnDate, 'pickReturnDate');
+    renderCalendar('returnCalBody', minReturn, 100, state.returnDate, 'pickReturnDate', state.dropoffDate);
 }
 
 function pickReturnDate(dateStr) {
@@ -1141,7 +1156,7 @@ function pickReturnDate(dateStr) {
     const minReturn = state.dropoffDate
         ? new Date(state.dropoffDate.getFullYear(), state.dropoffDate.getMonth(), state.dropoffDate.getDate() + 1)
         : today();
-    renderCalendar('returnCalBody', minReturn, 100, d, 'pickReturnDate');
+    renderCalendar('returnCalBody', minReturn, 100, d, 'pickReturnDate', state.dropoffDate);
     goToStep(6);
 }
 
