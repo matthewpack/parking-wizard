@@ -329,7 +329,7 @@
         .fnr-msg { font-size: .85rem; color: var(--muted); margin-bottom: .625rem; }
         .fnr-opt {
             padding: .625rem .875rem; font-size: .82rem; color: var(--purple);
-            cursor: pointer; border-radius: 8px; border: 1px solid var(--border);
+            cursor: pointer; border-radius: 8px;
             margin-bottom: .375rem; display: flex; align-items: center; gap: .5rem;
         }
         .fnr-opt:hover { background: var(--purple-l); }
@@ -378,6 +378,7 @@
         }
         .btn-success:hover { background: var(--green-d); }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@7/dist/fuse.min.js"></script>
 </head>
 <body>
 
@@ -427,7 +428,7 @@
         <div class="flight-section">
             <p class="sec-lbl">Find your flight <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.7rem;color:var(--muted)">(optional)</span></p>
             <div class="flt-search-wrap" id="outboundSearchWrap">
-                <input type="search" id="outboundFlightSearch" class="flt-search-inp" placeholder="Search destination, time or airline…" autocomplete="off" oninput="filterFlights('outboundFlightList','outbound')">
+                <input type="text" id="outboundFlightSearch" class="flt-search-inp" placeholder="Search destination, time or airline…" autocomplete="off" oninput="filterFlights('outboundFlightList','outbound')">
                 <span class="flt-search-count" id="outboundFlightCount"></span>
                 <button class="flt-search-clear" id="outboundSearchClear" onclick="clearFlightSearch('outboundFlightList','outbound')" aria-label="Clear search" style="display:none">✕</button>
             </div>
@@ -460,11 +461,7 @@
             <p class="flt-ctx" id="returnFlightCtx"></p>
             <div class="flt-return-wrap">
                 <div class="flt-date-strip" id="returnDateStrip"></div>
-                <div class="flt-search-wrap" id="returnSearchWrap">
-                    <input type="search" id="returnFlightSearch" class="flt-search-inp" placeholder="Search destination, time or airline…" autocomplete="off" oninput="filterFlights('returnFlightList','return')">
-                    <span class="flt-search-count" id="returnFlightCount"></span>
-                    <button class="flt-search-clear" id="returnSearchClear" onclick="clearFlightSearch('returnFlightList','return')" aria-label="Clear search" style="display:none">✕</button>
-                </div>
+
                 <div id="returnFlightList" role="listbox"></div>
             </div>
             <span class="skip-flight-link" tabindex="0"
@@ -611,6 +608,7 @@ function normaliseFlights(raw, dateStr, mode) {
                 code:          e.flight?.code || '',
                 reference:     e.flight?.reference || '',
                 airline:       e.flight?.carrier?.name || e.flight?.carrier?.code || '',
+                airlineCode:   e.flight?.carrier?.code || '',
                 dest:          arr.airport || arr.city || '',
                 destCountry:   arr.country || '',
                 destAirport:   arr.airport_iata || '',
@@ -1167,6 +1165,39 @@ function _highlight(text, q) {
            esc(text.slice(i + q.length));
 }
 
+// Highlights all words from a query array in the given text. Safe HTML string output.
+function _highlightWords(text, words) {
+    if (!words || !words.length || !text) return esc(text || '');
+    let result = esc(text);
+    for (const w of words) {
+        if (!w || w.length < 2) continue;
+        const re = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        result = result.replace(re, m => `<mark class="flt-hl">${m}</mark>`);
+    }
+    return result;
+}
+
+// Builds a Fuse.js index over a flight array, searching all text fields in the API payload.
+function _buildFuseIndex(flights) {
+    return new Fuse(flights, {
+        keys: [
+            { name: 'dest',        weight: 3 },
+            { name: 'destAirport', weight: 2 },
+            { name: 'destCountry', weight: 2 },
+            { name: 'airline',     weight: 2 },
+            { name: 'airlineCode', weight: 1.5 },
+            { name: 'code',        weight: 1.5 },
+            { name: 'operatedBy',  weight: 1 },
+            { name: 'terminal',    weight: 0.5 },
+        ],
+        threshold: 0.3,
+        ignoreLocation: true,
+        shouldSort: false,
+        minMatchCharLength: 2,
+        findAllMatches: true,
+    });
+}
+
 function _setSearchCount(containerId, n, total) {
     const countEl = document.getElementById(_searchCountId(containerId));
     if (countEl) countEl.textContent = n === total ? n + ' flights' : n + ' of ' + total + ' flights';
@@ -1201,6 +1232,7 @@ function renderFlightList(containerId, flights, type) {
 
     // Flat combined array — indexed by data-idx in every flight row
     container._flights = [...recents, ...day0, ...day1];
+    container._fuse    = _buildFuseIndex(container._flights);
 
     const wrap = document.getElementById(_searchWrapId(containerId));
     const inp  = document.getElementById(_searchInputId(containerId));
@@ -1283,7 +1315,7 @@ function _groupCodeshares(subset, allFlights) {
 }
 
 // Returns HTML string for a subset of flight rows. Indexes into allFlights for stable data-idx.
-function _flightRowsHtml(subset, allFlights, type, q = '') {
+function _flightRowsHtml(subset, allFlights, type, words = []) {
     const selFlight = type === 'outbound' ? state.dropoffFlight : state.returnFlight;
     const TERM_NAMES = { N:'North Terminal', S:'South Terminal', T:'Tunnel Terminal' };
     let html = '';
@@ -1344,7 +1376,7 @@ function _flightRowsHtml(subset, allFlights, type, q = '') {
                         </span>
                         <span class="fr-arrow" aria-hidden="true">→</span>
                         <span class="fr-dest">
-                            <div>${_highlight(f.dest, q)}</div>
+                            <div>${_highlightWords(f.dest, words)}</div>
                             ${noteParts ? `<div class="fr-note">${noteParts}</div>` : ''}
                         </span>
                         ${tailfinHtml}
@@ -1358,8 +1390,10 @@ function filterFlights(containerId, type) {
     const inp      = document.getElementById(_searchInputId(containerId));
     const clearBtn = document.getElementById(_searchClearId(containerId));
     const container = document.getElementById(containerId);
-    const all = container._flights || [];
-    const q   = inp ? inp.value.trim().toLowerCase() : '';
+    const all  = container._flights || [];
+    const fuse = container._fuse;
+    const raw  = inp ? inp.value : '';
+    const q    = raw.trim();
 
     if (clearBtn) clearBtn.style.display = q ? '' : 'none';
 
@@ -1373,31 +1407,46 @@ function filterFlights(containerId, type) {
         return;
     }
 
-    // Build a set of "primary codes" whose group contains a match
-    const expanded = DEST_ALIASES[q] || q;
-    const matches = (f) => {
-        const dl = f.dest.toLowerCase(), al = f.airline.toLowerCase();
-        const timeStr = pad2(f.depHour) + ':' + pad2(f.depMinute);
-        // Check the flight itself
-        if (dl.includes(expanded) || dl.includes(q) || al.includes(q) ||
-            f.code.toLowerCase().includes(q) || f.destAirport.toLowerCase().includes(q) ||
-            (f.destCountry || '').toLowerCase().includes(q) || timeStr.includes(q)) return true;
-        // Check sibling codes in same group
-        return all.some(s => s !== f &&
-            s.depHour === f.depHour && s.depMinute === f.depMinute &&
-            s.originAirport === f.originAirport && s.destAirport === f.destAirport &&
-            s.code.toLowerCase().includes(q));
-    };
+    // Split into words; each word must match at least one field (AND logic)
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
 
-    const filtered = all.filter(matches);
-    const groups   = _groupCodeshares(filtered, all);
-    const total    = _groupCodeshares(all, all).length;
+    // For each word, build the set of flight codes that match via Fuse or time search
+    const wordSets = words.map(w => {
+        const matched = new Set();
+        // Time search: strip colons so "0625" and "06:25" both work
+        const wNorm = w.replace(':', '');
+        if (/^\d{2,4}$/.test(wNorm)) {
+            all.forEach(f => {
+                if ((pad2(f.depHour) + pad2(f.depMinute)).includes(wNorm)) matched.add(f.code);
+            });
+        }
+        // Fuse fuzzy search across all stored fields (dest, airline, airlineCode, code, country, terminal…)
+        if (w.length >= 2 && fuse) {
+            fuse.search(w).forEach(r => matched.add(r.item.code));
+        }
+        return matched;
+    });
+
+    // A flight passes if ALL words match it (or a codeshare sibling of it)
+    const filtered = all.filter(f =>
+        wordSets.every(set => {
+            if (set.has(f.code)) return true;
+            // Sibling check: a codeshare partner of this flight matched this word
+            return all.some(s => s !== f &&
+                s.depHour === f.depHour && s.depMinute === f.depMinute &&
+                s.originAirport === f.originAirport && s.destAirport === f.destAirport &&
+                set.has(s.code));
+        })
+    );
+
+    const groups = _groupCodeshares(filtered, all);
+    const total  = _groupCodeshares(all, all).length;
     _setSearchCount(containerId, groups.length, total);
 
     if (!filtered.length) {
-        _renderNoResults(container, inp.value.trim());
+        _renderNoResults(container, q);
     } else {
-        container.innerHTML = '<div class="flight-list">' + _flightRowsHtml(filtered, all, type, q) + '</div>';
+        container.innerHTML = '<div class="flight-list">' + _flightRowsHtml(filtered, all, type, words) + '</div>';
     }
 }
 
