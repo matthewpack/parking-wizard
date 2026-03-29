@@ -432,7 +432,7 @@
                 <span class="flt-search-count" id="outboundFlightCount"></span>
                 <button class="flt-search-clear" id="outboundSearchClear" onclick="clearFlightSearch('outboundFlightList','outbound')" aria-label="Clear search" style="display:none">✕</button>
             </div>
-            <div class="flight-list" id="outboundFlightList" role="listbox"></div>
+            <div id="outboundFlightList" role="listbox"></div>
             <span class="skip-flight-link" tabindex="0"
                   onclick="skipFlight('outbound')"
                   onkeydown="if(event.key==='Enter')skipFlight('outbound')">Skip — I'll enter the time manually</span>
@@ -1190,11 +1190,11 @@ function _buildFuseIndex(flights) {
             { name: 'operatedBy',  weight: 1 },
             { name: 'terminal',    weight: 0.5 },
         ],
-        threshold: 0.3,
+        threshold: 0.0,
         ignoreLocation: true,
         shouldSort: false,
-        minMatchCharLength: 2,
-        findAllMatches: true,
+        minMatchCharLength: 1,
+        isCaseSensitive: false,
     });
 }
 
@@ -1283,14 +1283,14 @@ function _renderNoResults(container, query) {
         ? `No flights found for <strong>${esc(query)}</strong>`
         : 'No flights found for this date';
     container.innerHTML =
-        `<div class="flight-no-results">
+        `<div class="flight-list"><div class="flight-no-results">
             <div class="fnr-msg">${msg}</div>
             <div class="fnr-options">
                 <div class="fnr-opt" onclick="skipFlight('${container.id === 'outboundFlightList' ? 'outbound' : 'return'}')">
                     Enter time manually instead
                 </div>
             </div>
-        </div>`;
+        </div></div>`;
 }
 
 // Groups flights with the same physical route + departure time into one display entry.
