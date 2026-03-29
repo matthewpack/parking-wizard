@@ -1262,10 +1262,11 @@ function setupReturnFlight() {
     const ctx = document.getElementById('returnFlightCtx');
     ctx.innerHTML = esc(state.dropoffFlight?.dest || outDest) + ' &rarr; ' + esc(state.airport?.full || state.airport?.name || state.airport?.code || '');
 
-    // Date strip — restore toggled date if user already picked a flight,
+    // Date strip represents ARRIVAL date at the parking airport.
+    // Restore to the flight's arrival date if user already picked one,
     // otherwise default to the collection date the user entered.
-    _returnViewDate = (state.returnFlight?.departureDate)
-        ? parseISO(state.returnFlight.departureDate)
+    _returnViewDate = (state.returnFlight?.arrivalDate)
+        ? parseISO(state.returnFlight.arrivalDate)
         : state.returnDate;
     _renderReturnDateStrip();
 
@@ -1295,9 +1296,12 @@ function _loadReturnFlights(outDest, date) {
     const container = document.getElementById('returnFlightList');
     container.innerHTML = '<div class="flight-loading">Loading flights…</div>';
     document.getElementById('returnSearchWrap')?.classList.remove('visible');
-    // Fetch both the selected date AND the day before — overnight long-haul flights
-    // (e.g. Bangkok→London) depart the day before they land, so both days' departures
-    // are relevant when the user picks their car collection (= landing) date.
+    // `date` = the arrival/landing date at the parking airport (what the user tapped).
+    // Overnight long-haul flights depart the day before they land, so we must query
+    // BOTH date-1 and date from the API (which filters by departure date).
+    // After fetching, we filter to only keep flights whose arrivalDate matches `date`
+    // so each tab strictly shows flights landing on that date — not departing on it.
+    const targetDateStr = fmtISO(date);
     const dayBefore = new Date(date.getFullYear(), date.getMonth(), date.getDate() - 1);
     Promise.all([
         fetchFlights(outDest, dayBefore, { destination: state.airport.code }),
@@ -1309,7 +1313,7 @@ function _loadReturnFlights(outDest, date) {
             if (seen.has(key)) return false;
             seen.add(key);
             return true;
-        });
+        }).filter(f => (f.arrivalDate || f.departureDate) === targetDateStr);
         renderFlightList('returnFlightList', merged, 'return');
     });
 }
