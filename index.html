@@ -1891,22 +1891,23 @@ window.addEventListener('DOMContentLoaded', () => {
     // Auto-location on load
     _tryGpsOnLoad();
 
-    // iOS Safari: focusing the flight search input causes the browser to scroll the
-    // page to show the input above the keyboard, which can drag scrollY below the
-    // sticky threshold and deactivate position:sticky. After focus settles, nudge
-    // scrollY back above the bar's document offset to re-activate stickiness.
-    document.addEventListener('focusin', function(e) {
-        if (!e.target.classList.contains('flt-search-inp')) return;
-        if (!('ontouchstart' in window)) return;
-        const wrap = e.target.closest('.flt-search-wrap');
-        if (!wrap || !wrap.classList.contains('visible')) return;
-        const wrapDocTop = wrap.getBoundingClientRect().top + window.scrollY;
-        setTimeout(function() {
+    // iOS Safari: when the keyboard opens the visual viewport shrinks and iOS can
+    // reduce window.scrollY, dropping it below the sticky threshold and letting
+    // the search bar scroll off the top. Use visualViewport resize (fires exactly
+    // when the keyboard appears) to detect this and nudge scrollY back above the
+    // threshold — smooth scroll avoids the jarring flash of an instant jump.
+    if (window.visualViewport && 'ontouchstart' in window) {
+        window.visualViewport.addEventListener('resize', function() {
+            const wrap = document.querySelector('.flt-search-wrap.visible');
+            if (!wrap) return;
+            const active = document.activeElement;
+            if (!active || !active.classList.contains('flt-search-inp')) return;
+            const wrapDocTop = wrap.offsetTop;
             if (window.scrollY < wrapDocTop) {
-                window.scrollTo({ top: wrapDocTop + 1, behavior: 'instant' });
+                window.scrollTo({ top: wrapDocTop + 1, behavior: 'smooth' });
             }
-        }, 150);
-    }, { passive: true });
+        }, { passive: true });
+    }
 
     // Hash navigation on load
     history.replaceState({ step: 1 }, '', '#flying-from');
