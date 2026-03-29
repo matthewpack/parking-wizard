@@ -268,6 +268,8 @@
             position: sticky;
             top: 0;
             z-index: 20;
+            width: 100%;
+            box-sizing: border-box;
             box-shadow: 0 2px 8px rgba(0,0,0,.10);
         }
         .flt-search-inp {
@@ -965,7 +967,7 @@ function gpsLookupSilent() {
             if (bigBtn) bigBtn.style.display = '';
             ipLocationLookup();
         },
-        { enableHighAccuracy:false, maximumAge:600000, timeout:20000 }
+        { enableHighAccuracy:true, maximumAge:300000, timeout:10000 }
     );
 }
 
@@ -1000,7 +1002,7 @@ function requestLocation() {
         return;
     }
     if (bigBtn) { bigBtn.innerHTML = '📍 Getting your location…'; bigBtn.disabled = true; }
-    console.log('[location] GPS button lookup (high-accuracy)...');
+    console.log('[location] GPS button lookup...');
     navigator.geolocation.getCurrentPosition(
         pos => {
             const lat = pos.coords.latitude, lon = pos.coords.longitude;
@@ -1008,27 +1010,15 @@ function requestLocation() {
             gpsGranted(lat, lon);
         },
         err => {
-            console.warn('[location] high-accuracy failed (code ' + err.code + '), retrying low-accuracy...');
-            if (err.code === 1) {
-                // Permission denied — no point retrying
-                if (bigBtn) { bigBtn.innerHTML = '⚠ GPS blocked · check your browser settings'; bigBtn.disabled = false; }
-                return;
+            console.warn('[location] GPS error:', err.code, err.message);
+            if (bigBtn) {
+                bigBtn.innerHTML = err.code === 1
+                    ? '⚠ GPS blocked · check your browser settings'
+                    : '📍 Could not get GPS · tap to try again';
+                bigBtn.disabled = false;
             }
-            // Timeout or unavailable — retry without high-accuracy (works on desktop via Wi-Fi)
-            navigator.geolocation.getCurrentPosition(
-                pos => {
-                    const lat = pos.coords.latitude, lon = pos.coords.longitude;
-                    applyLocation(lat, lon, 'GPS (±' + Math.round(pos.coords.accuracy) + 'm)');
-                    gpsGranted(lat, lon);
-                },
-                err2 => {
-                    console.warn('[location] low-accuracy also failed (code ' + err2.code + ')');
-                    if (bigBtn) { bigBtn.innerHTML = '📍 Could not get location · tap to try again'; bigBtn.disabled = false; }
-                },
-                { enableHighAccuracy:false, maximumAge:300000, timeout:30000 }
-            );
         },
-        { enableHighAccuracy:true, maximumAge:60000, timeout:15000 }
+        { enableHighAccuracy:true, maximumAge:60000, timeout:30000 }
     );
 }
 
