@@ -287,8 +287,20 @@
             padding: .3rem 1rem; font-size: .65rem; font-weight: 700; letter-spacing: .05em;
             text-transform: uppercase; color: var(--muted); background: #f7f6fb;
             border-bottom: 1px solid var(--border);
+            display: flex; align-items: center;
         }
         .flt-sec-hdr:not(:first-child) { border-top: 1px solid var(--border); }
+        .flt-sec-hdr-clear {
+            margin-left: auto; font-size: .65rem; font-weight: 600; color: var(--purple);
+            background: none; border: none; cursor: pointer; padding: 0;
+            text-transform: none; letter-spacing: 0;
+        }
+        .fr-recent-remove {
+            background: none; border: none; cursor: pointer; padding: .25rem .5rem;
+            font-size: 1rem; color: var(--muted); line-height: 1; flex-shrink: 0;
+            margin-left: .25rem;
+        }
+        .fr-recent-remove:hover { color: var(--text); }
 
         /* ── Return flight: single bordered wrapper containing date strip + rows ── */
         .flt-return-wrap {
@@ -812,6 +824,21 @@ const Favourites = {
         return rec?.flights || [];
     },
 
+    removeFlight(airportCode, flightCode) {
+        const items = this.read();
+        const rec = items.find(r => r.airport.code === airportCode);
+        if (!rec) return;
+        rec.flights = (rec.flights || []).filter(f => f.code !== flightCode);
+        this.write(items);
+    },
+    clearFlights(airportCode) {
+        const items = this.read();
+        const rec = items.find(r => r.airport.code === airportCode);
+        if (!rec) return;
+        rec.flights = [];
+        this.write(items);
+    },
+
     // ── destinations (future) ─────────────────────────────────────
     pushDestination(airportCode, destination) {
         const items = this.read();
@@ -1287,7 +1314,8 @@ function _renderFlightStructure(container, recents, day0, day1, type) {
     let html  = '<div class="flight-list">';
 
     if (recents.length) {
-        html += '<div class="flt-sec-hdr">Recently selected</div>';
+        const cid = container.id;
+        html += `<div class="flt-sec-hdr">Recently selected<button class="flt-sec-hdr-clear" onclick="clearRecentFlights('${cid}','${type}')">Clear all</button></div>`;
         html += _flightRowsHtml(recents, all, type);
     }
 
@@ -1363,6 +1391,10 @@ function _flightRowsHtml(subset, allFlights, type, words = []) {
         const codesHtml = esc(allCodes.join(' / '));
         const tailfinHtml = f.tailfin
             ? `<img class="fr-tail" src="${esc(f.tailfin)}" alt="${esc(f.airline)}" loading="lazy" onerror="this.style.display='none'">` : '';
+        const cid = type === 'outbound' ? 'outboundFlightList' : 'returnFlightList';
+        const removeBtnHtml = f._isRecent
+            ? `<button class="fr-recent-remove" onclick="event.stopPropagation();removeRecentFlight('${cid}','${type}','${esc(f.code)}')" aria-label="Remove from recents">✕</button>`
+            : '';
 
         const isReturn = type === 'return';
 
@@ -1391,7 +1423,7 @@ function _flightRowsHtml(subset, allFlights, type, words = []) {
                             </div>
                             <div class="fr-note">${[esc(f.airline), ...( allCodes.filter(c => c !== f.code).length ? [allCodes.filter(c => c !== f.code).map(esc).join(', ')] : [])].join(' · ')}</div>
                         </span>
-                        ${tailfinHtml}
+                        ${tailfinHtml}${removeBtnHtml}
                     </div>`;
         } else {
             const noteCountry  = f.destCountry || '';
@@ -1413,7 +1445,7 @@ function _flightRowsHtml(subset, allFlights, type, words = []) {
                             <div>${_highlightWords(f.dest, words)}</div>
                             ${noteParts ? `<div class="fr-note">${noteParts}</div>` : ''}
                         </span>
-                        ${tailfinHtml}
+                        ${tailfinHtml}${removeBtnHtml}
                     </div>`;
         }
     }
@@ -1491,6 +1523,29 @@ function filterFlights(containerId, type) {
     } else {
         container.innerHTML = '<div class="flight-list">' + _flightRowsHtml(filtered, all, type, words) + '</div>';
     }
+}
+
+function removeRecentFlight(containerId, type, flightCode) {
+    if (state.airport) Favourites.removeFlight(state.airport.code, flightCode);
+    const container = document.getElementById(containerId);
+    container._flights = (container._flights || []).filter(f => !(f._isRecent && f.code === flightCode));
+    container._fuse = _buildFuseIndex(container._flights);
+    const recents = container._flights.filter(f =>  f._isRecent);
+    const day0    = container._flights.filter(f => !f._isRecent && !f._nextDay);
+    const day1    = container._flights.filter(f => !f._isRecent &&  f._nextDay);
+    _renderFlightStructure(container, recents, day0, day1, type);
+    _setSearchCount(containerId, _groupCodeshares(container._flights, container._flights).length, _groupCodeshares(container._flights, container._flights).length);
+}
+
+function clearRecentFlights(containerId, type) {
+    if (state.airport) Favourites.clearFlights(state.airport.code);
+    const container = document.getElementById(containerId);
+    container._flights = (container._flights || []).filter(f => !f._isRecent);
+    container._fuse = _buildFuseIndex(container._flights);
+    const day0 = container._flights.filter(f => !f._nextDay);
+    const day1 = container._flights.filter(f =>  f._nextDay);
+    _renderFlightStructure(container, [], day0, day1, type);
+    _setSearchCount(containerId, _groupCodeshares(container._flights, container._flights).length, _groupCodeshares(container._flights, container._flights).length);
 }
 
 function clearFlightSearch(containerId, type) {
