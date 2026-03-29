@@ -1493,7 +1493,10 @@ async function submitSearch() {
 }
 
 // ─── Init ──────────────────────────────────────────────────────────────────────
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
 window.addEventListener('DOMContentLoaded', () => {
+    window.scrollTo(0, 0);
     // Initialise HX Tracker (defer ensures it's ready by DOMContentLoaded)
     if (window.tracker) {
         tracker.initialise({
