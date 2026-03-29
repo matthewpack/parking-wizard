@@ -256,7 +256,13 @@
             border: 1.5px solid var(--purple); border-radius: 10px;
             background: #fff; overflow: hidden;
         }
-        .flt-search-wrap.visible { display: flex; }
+        .flt-search-wrap.visible {
+            display: flex;
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            box-shadow: 0 2px 8px rgba(0,0,0,.10);
+        }
         .flt-search-inp {
             flex: 1; border: none; outline: none; padding: .625rem .875rem;
             font-size: .875rem; font-family: inherit; background: transparent; color: var(--text);
@@ -283,13 +289,7 @@
             border-bottom: 1px solid var(--border);
         }
         .flt-sec-hdr:not(:first-child) { border-top: 1px solid var(--border); }
-        /* "I fly the following day" as an inline row inside the box */
-        .flt-next-day-row {
-            display: block; padding: .6rem 1rem; font-size: .8rem; color: var(--purple);
-            text-align: center; text-decoration: none; border-bottom: 1px solid var(--border);
-            background: var(--purple-l);
-        }
-        .flt-next-day-row:hover { background: #e9e1f7; }
+
         /* ── Return flight: single bordered wrapper containing date strip + rows ── */
         .flt-return-wrap {
             border: 1.5px solid var(--border); border-radius: 10px;
@@ -1272,6 +1272,7 @@ function renderFlightList(containerId, flights, type) {
     if (inp) inp.value = '';
     if (clearBtn) clearBtn.style.display = 'none';
     if (wrap) wrap.classList.toggle('visible', container._flights.length > 0);
+    if (inp && container._flights.length > 0) setTimeout(() => inp.focus(), 50);
 
     // Count: deduplicated by grouping (same as display)
     const displayCount = _groupCodeshares(container._flights, container._flights).length;
@@ -1301,7 +1302,6 @@ function _renderFlightStructure(container, recents, day0, day1, type) {
 
     if (day1.length) {
         const label = day1[0].departureDate ? fmtDisplay(parseISO(day1[0].departureDate)) : '';
-        html += `<a class="flt-next-day-row" href="#${container.id}NextDay">I fly on the following day ↓</a>`;
         if (label) html += `<div class="flt-sec-hdr" id="${container.id}NextDay">${esc(label)}</div>`;
         html += _flightRowsHtml(day1, all, type);
     }
