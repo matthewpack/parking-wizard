@@ -1176,8 +1176,8 @@ function setupDropoffTime() {
     const hint = document.getElementById('outboundHint');
     if (state.dropoffFlight) {
         const f = state.dropoffFlight;
-        const termNote = f.terminal ? ' · Terminal ' + f.terminal : '';
-        hint.textContent = '✈ ' + f.code + ' to ' + f.dest + ' at ' + pad2(f.hour) + ':' + pad2(f.minute) + termNote;
+        const termNote = f.terminal ? ' · ' + fmtTerminal(f.terminal) : '';
+        hint.textContent = '✈ ' + f.code + ' to ' + f.dest + ' at ' + pad2(f.depHour) + ':' + pad2(f.depMinute) + termNote;
         hint.classList.add('visible');
     } else {
         hint.classList.remove('visible');
@@ -1279,8 +1279,9 @@ function setupReturnTime() {
     const hint = document.getElementById('returnHint');
     if (state.returnFlight) {
         const f = state.returnFlight;
-        const termNote = f.terminal ? ' · Terminal ' + f.terminal : '';
-        hint.textContent = '✈ ' + f.code + ' lands ' + pad2(f.hour) + ':' + pad2(f.minute) + termNote;
+        const airportName = state.airport?.full || state.airport?.name || '';
+        const termNote = f.terminal ? ' · ' + fmtTerminal(f.terminal) : '';
+        hint.textContent = '✈ ' + f.code + ' lands ' + pad2(f.hour) + ':' + pad2(f.minute) + (airportName ? ' · ' + airportName : '') + termNote;
         hint.classList.add('visible');
     } else {
         hint.classList.remove('visible');
