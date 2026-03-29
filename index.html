@@ -1263,10 +1263,15 @@ function setupReturnFlight() {
     const ctx = document.getElementById('returnFlightCtx');
     ctx.innerHTML = esc(state.dropoffFlight?.dest || outDest) + ' &rarr; ' + esc(state.airport?.full || state.airport?.name || state.airport?.code || '');
 
-    // Date strip — restore toggled date if user already picked a flight, otherwise use return date
+    // Date strip — restore toggled date if user already picked a flight.
+    // Otherwise default to the day BEFORE the collection date: the API works on
+    // departure-from-origin date, so a flight landing on collection day will have
+    // departed the previous day (overnight long-haul). Short-haul same-day users
+    // can tap the +1 tab to find their flight.
+    const dayBeforeReturn = new Date(state.returnDate.getFullYear(), state.returnDate.getMonth(), state.returnDate.getDate() - 1);
     _returnViewDate = (state.returnFlight?.departureDate)
         ? parseISO(state.returnFlight.departureDate)
-        : state.returnDate;
+        : dayBeforeReturn;
     _renderReturnDateStrip();
 
     _loadReturnFlights(outDest, _returnViewDate);
