@@ -44,7 +44,7 @@
             --bg:       #f5f5f7;
             --border:   #e2e8f0;
             --text:     #1a1a2e;
-            --muted:    #718096;
+            --muted:    #4a5568;
         }
 
         html { font-size: 18px; overflow-x: hidden; }
@@ -108,7 +108,7 @@
 
         /* ── Labels ── */
         .sec-lbl {
-            font-size: .68rem; font-weight: 700; text-transform: uppercase;
+            font-size: .75rem; font-weight: 700; text-transform: uppercase;
             letter-spacing: .08em; color: var(--muted); margin-bottom: .625rem;
         }
         .step-q { font-size: .875rem; color: var(--muted); margin-bottom: .875rem; }
@@ -132,7 +132,7 @@
         }
         .nearest-row .sec-lbl { margin-bottom: 0; }
         .gps-link {
-            font-size: .72rem; font-weight: 600; color: var(--green);
+            font-size: .82rem; font-weight: 600; color: #276749;
             white-space: nowrap; text-decoration: none;
             border: none; background: none; font-family: inherit; padding: 0; cursor: default;
         }
@@ -141,17 +141,21 @@
         .recents-section { margin-bottom: 1.375rem; }
         .recent-chips { display: flex; flex-wrap: wrap; gap: .45rem; }
         .recent-chip {
-            display: inline-flex; align-items: center; gap: .35rem;
+            display: inline-flex; align-items: center;
             background: var(--purple-l); border: 1.5px solid var(--purple-m);
-            border-radius: 20px; padding: .45rem .5rem .45rem .875rem;
-            cursor: pointer; transition: background .12s, border-color .12s;
-            -webkit-tap-highlight-color: transparent;
+            border-radius: 20px; overflow: hidden;
+            transition: background .12s, border-color .12s;
         }
         .recent-chip:hover { background: var(--purple-m); }
+        .rc-btn {
+            background: none; border: none; padding: .45rem .35rem .45rem .875rem;
+            font-family: inherit; cursor: pointer; display: inline-flex; align-items: center;
+            -webkit-tap-highlight-color: transparent;
+        }
         .rc-code { font-size: .9rem; font-weight: 800; color: var(--purple); }
-        .rc-name { font-size: .72rem; font-weight: 400; color: var(--text); }
+        .rc-name { font-size: .85rem; font-weight: 400; color: var(--text); }
         .rc-x {
-            font-size: .75rem; color: var(--muted); padding: 2px 4px;
+            font-size: .85rem; color: var(--muted); padding: 2px 6px;
             border-radius: 10px; line-height: 1; cursor: pointer;
             -webkit-tap-highlight-color: transparent;
         }
@@ -175,7 +179,7 @@
         .a-tile.selected    { border-color: var(--purple); background: var(--purple-l); transform: scale(1.04); }
         .a-tile.confirming  { border-color: var(--green); background: var(--green-l); animation: pop .3s ease; }
         .a-code { font-size: 1.375rem; font-weight: 800; color: var(--purple); letter-spacing: .02em; }
-        .a-name { font-size: .68rem; color: var(--muted); margin-top: .2rem; line-height: 1.3; }
+        .a-name { font-size: .78rem; color: var(--muted); margin-top: .2rem; line-height: 1.3; }
         @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
 
         /* ── Airport list ── */
@@ -200,7 +204,7 @@
         }
         .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
         .cal-dow {
-            font-size: .62rem; font-weight: 700; text-align: center; color: var(--muted);
+            font-size: .75rem; font-weight: 700; text-align: center; color: var(--muted);
             padding: .3rem 0; text-transform: uppercase; letter-spacing: .04em;
         }
         .cal-day {
@@ -219,7 +223,7 @@
         /* ── Context bar ── */
         .ctx-bar {
             background: #f8f7fc; border: 1.5px solid var(--border); border-radius: 8px;
-            padding: .625rem .875rem; font-size: .815rem; color: var(--muted); margin-bottom: .875rem;
+            padding: .625rem .875rem; font-size: .875rem; color: var(--muted); margin-bottom: .875rem;
         }
         .ctx-bar strong { color: var(--text); }
 
@@ -236,21 +240,21 @@
         .flight-row:hover       { background: var(--purple-l); }
         .flight-row.selected    { background: var(--purple-l); }
         .flight-row.confirming  { background: var(--green-l); }
-        .fr-code  { font-size: .75rem; font-weight: 700; color: var(--muted); min-width: 3.5rem; width: 3.5rem; flex-shrink: 0; font-family: ui-monospace, monospace; line-height: 1.6; }
+        .fr-code  { font-size: .82rem; font-weight: 700; color: var(--muted); min-width: 3.5rem; width: 3.5rem; flex-shrink: 0; font-family: ui-monospace, monospace; line-height: 1.6; }
         .fr-time-col { display: flex; flex-direction: column; width: 3.25rem; flex-shrink: 0; }
         .fr-time  { font-size: 1.25rem; font-weight: 800; color: var(--purple); line-height: 1.1; }
-        .fr-time-sub { font-size: .62rem; color: var(--text); font-weight: 600; line-height: 1.4; white-space: nowrap; }
-        .fr-arrow { color: var(--muted); font-size: .8rem; flex-shrink: 0; }
+        .fr-time-sub { font-size: .75rem; color: var(--text); font-weight: 600; line-height: 1.4; white-space: nowrap; }
+        .fr-arrow { color: var(--muted); font-size: .875rem; flex-shrink: 0; }
         .fr-dest  { flex: 1; font-size: .875rem; color: var(--text); }
         .fr-dest > div:first-child { font-weight: 700; color: #1a1a2e; }
-        .fr-note  { font-size: .7rem; color: var(--muted); margin-top: .15rem; }
+        .fr-note  { font-size: .78rem; color: var(--muted); margin-top: .15rem; }
         .skip-flight-link {
-            display: block; text-align: center; font-size: .78rem; color: var(--muted);
+            display: block; text-align: center; font-size: .875rem; color: var(--muted);
             cursor: pointer; padding: .375rem; text-decoration: underline; text-decoration-style: dotted;
         }
         .skip-flight-link:hover { color: var(--text); }
         .flight-hint {
-            font-size: .75rem; color: var(--green); font-weight: 600;
+            font-size: .85rem; color: var(--green); font-weight: 600;
             margin-bottom: .875rem; padding: .5rem .75rem; background: var(--green-l);
             border-radius: 7px; border: 1px solid #c6f6d5; display: none;
         }
@@ -274,7 +278,7 @@
             min-width: 0;
         }
         .flt-search-count {
-            font-size: .78rem; font-weight: 600; color: var(--purple);
+            font-size: .875rem; font-weight: 600; color: var(--purple);
             padding: 0 .4rem; white-space: nowrap; flex-shrink: 0;
         }
         .flt-search-clear {
@@ -285,18 +289,18 @@
         mark.flt-hl { background: #fdd506; color: inherit; border-radius: 2px; padding: 0 1px; font-style: normal; }
         .flight-loading {
             padding: 1.25rem; text-align: center; color: var(--muted);
-            font-size: .85rem;
+            font-size: .9rem;
         }
         /* Section headers inside the single flight-list box */
         .flt-sec-hdr {
-            padding: .3rem 1rem; font-size: .65rem; font-weight: 700; letter-spacing: .05em;
+            padding: .3rem 1rem; font-size: .75rem; font-weight: 700; letter-spacing: .05em;
             text-transform: uppercase; color: var(--muted); background: #f7f6fb;
             border-bottom: 1px solid var(--border);
             display: flex; align-items: center;
         }
         .flt-sec-hdr:not(:first-child) { border-top: 1px solid var(--border); }
         .flt-sec-hdr-clear {
-            margin-left: auto; font-size: .65rem; font-weight: 600; color: var(--purple);
+            margin-left: auto; font-size: .75rem; font-weight: 600; color: var(--purple);
             background: none; border: none; cursor: pointer; padding: 0;
             text-transform: none; letter-spacing: 0;
         }
@@ -312,7 +316,7 @@
             display: flex; align-items: baseline; justify-content: space-between; margin-bottom: .625rem;
         }
         .flt-find-hdr .sec-lbl { margin-bottom: 0; }
-        .flt-find-hdr .skip-flight-link { display: inline; padding: 0; font-size: .78rem; }
+        .flt-find-hdr .skip-flight-link { display: inline; padding: 0; font-size: .875rem; }
 
         /* ── Bordered wrapper containing date strip + search + rows ── */
         .flt-return-wrap {
@@ -330,32 +334,32 @@
         .flt-return-wrap .flt-date-btn { flex: 1; padding: .55rem .25rem; }
         .flt-date-btn {
             flex: 0 0 auto; padding: .55rem .875rem; border: 1.5px solid var(--border);
-            border-radius: 8px; font-size: .73rem; font-weight: 600; text-align: center;
+            border-radius: 8px; font-size: .875rem; font-weight: 600; text-align: center;
             cursor: pointer; background: #fff; color: var(--muted); line-height: 1.3;
             font-family: inherit;
         }
         .flt-date-btn.active { border-color: var(--purple); color: var(--purple); background: var(--purple-l); font-weight: 700; }
         .flt-date-btn:hover:not(.active) { background: var(--purple-l); }
-        .flt-ctx { font-size: .8rem; color: var(--muted); margin-bottom: .625rem; text-align: center; }
+        .flt-ctx { font-size: .875rem; color: var(--muted); margin-bottom: .625rem; text-align: center; }
         /* ── Return flight rows — two-leg layout ── */
         .fr-legs { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .18rem; }
         .fr-leg  { display: flex; align-items: baseline; gap: .45rem; }
-        .fr-leg-icon { font-size: .7rem; color: var(--muted); width: .9rem; flex-shrink: 0; text-align: center; }
+        .fr-leg-icon { font-size: .8rem; color: var(--muted); width: .9rem; flex-shrink: 0; text-align: center; }
         .fr-leg-time { font-weight: 800; color: var(--purple); font-size: 1.15rem; width: 3rem; flex-shrink: 0; }
         .fr-leg-time.arr { color: var(--text); font-size: .95rem; font-weight: 700; }
-        .fr-leg-ap   { font-size: .68rem; font-weight: 700; color: var(--muted); letter-spacing: .03em; }
-        .fr-leg-date { font-size: .68rem; color: var(--text); white-space: nowrap; }
-        .fr-leg-term { font-size: .68rem; color: var(--muted); font-style: italic; white-space: nowrap; }
-        .fr-codeshare { font-size: .65rem; color: var(--muted); font-style: italic; }
-        .fr-note { font-size: .65rem; color: var(--muted); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .fr-leg-ap   { font-size: .78rem; font-weight: 700; color: var(--muted); letter-spacing: .03em; }
+        .fr-leg-date { font-size: .78rem; color: var(--text); white-space: nowrap; }
+        .fr-leg-term { font-size: .78rem; color: var(--muted); font-style: italic; white-space: nowrap; }
+        .fr-codeshare { font-size: .75rem; color: var(--muted); font-style: italic; }
+        .fr-note { font-size: .75rem; color: var(--muted); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .fr-tail {
             height: 44px; width: auto; flex-shrink: 0; object-fit: contain;
             opacity: .92; margin-left: auto;
         }
         .flight-no-results { padding: .75rem 1rem; }
-        .fnr-msg { font-size: .85rem; color: var(--muted); margin-bottom: .625rem; }
+        .fnr-msg { font-size: .9rem; color: var(--muted); margin-bottom: .625rem; }
         .fnr-opt {
-            padding: .625rem .875rem; font-size: .82rem; color: var(--purple);
+            padding: .625rem .875rem; font-size: .875rem; color: var(--purple);
             cursor: pointer; border-radius: 8px;
             margin-bottom: .375rem; display: flex; align-items: center; gap: .5rem;
         }
@@ -381,19 +385,19 @@
             border-radius: 10px; padding: 1rem; text-align: center; margin-bottom: 1.25rem;
         }
         .dc-nights { font-size: 1.625rem; font-weight: 800; color: var(--purple); }
-        .dc-dates  { font-size: .8rem; color: var(--muted); margin-top: .15rem; }
+        .dc-dates  { font-size: .875rem; color: var(--muted); margin-top: .15rem; }
         .review-row { display: flex; align-items: center; padding: .875rem 0; border-bottom: 1px solid #f0f4f8; }
         .review-row:last-child { border-bottom: none; }
         .rr-icon { font-size: 1rem; margin-right: .75rem; flex-shrink: 0; }
         .rr-body { flex: 1; min-width: 0; }
-        .rr-lbl  { font-size: .72rem; color: var(--muted); }
+        .rr-lbl  { font-size: .82rem; color: var(--muted); }
         .rr-val  { font-size: .95rem; font-weight: 600; color: var(--text); margin-top: .1rem; }
-        .rr-flight-note { font-size: .75rem; color: var(--muted); margin-top: .25rem; }
+        .rr-flight-note { font-size: .82rem; color: var(--muted); margin-top: .25rem; }
         .rr-edit { background: none; border: none; color: var(--muted); cursor: pointer; padding: .375rem; border-radius: 5px; font-size: .95rem; transition: background .12s; flex-shrink: 0; }
         .rr-edit:hover { background: #f0f4f8; color: var(--text); }
 
         /* ── CTA ── */
-        .srch-loading { display: none; text-align: center; padding: 1.25rem 0 .75rem; color: var(--muted); font-size: .85rem; }
+        .srch-loading { display: none; text-align: center; padding: 1.25rem 0 .75rem; color: var(--muted); font-size: .9rem; }
         .srch-loading.on { display: block; }
         .spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--purple); border-radius: 50%; animation: spin .75s linear infinite; margin: 0 auto .5rem; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -410,7 +414,7 @@
 <body>
 
 <header>
-    <img src="logo.jpg" alt="Holiday Extras — Airport Parking" class="header-logo">
+    <img src="logo.jpg" alt="Holiday Extras — Airport Parking" class="header-logo" width="836" height="148">
 </header>
 
 <div class="hero-wrap" id="heroWrap">
@@ -523,7 +527,7 @@
             </div>
             <button class="btn-success" id="searchBtn" onclick="submitSearch()">Show prices and availability &rarr;</button>
         </div>
-        <p style="margin-top:.75rem;font-size:.72rem;color:var(--muted);text-align:center;line-height:1.6">
+        <p style="margin-top:.75rem;font-size:.875rem;color:var(--muted);text-align:center;line-height:1.6">
             Remember, the earlier you book, the better the price.
         </p>
     </section>
@@ -888,14 +892,14 @@ function renderRecents() {
     if (!airports.length) { section.style.display = 'none'; return; }
     section.style.display = '';
     document.getElementById('recentChips').innerHTML = airports.map(a =>
-        `<div class="recent-chip" role="button" tabindex="0"
-              aria-label="${esc(a.short)}"
-              onclick="pickAirport('${a.code}')"
-              onkeydown="if(event.key==='Enter')pickAirport('${a.code}')">
-            <span class="rc-name" style="font-weight:700">${esc(a.short)}</span>
-            <span class="rc-x" role="button" aria-label="Remove ${esc(a.short)}"
-                  onclick="event.stopPropagation();removeRecent('${a.code}')"
-                  onkeydown="event.stopPropagation()">✕</span>
+        `<div class="recent-chip">
+            <button type="button" class="rc-btn" onclick="pickAirport('${a.code}')"
+                    onkeydown="if(event.key==='Enter'||event.key===' ')pickAirport('${a.code}')">
+                <span class="rc-name" style="font-weight:700">${esc(a.short)}</span>
+            </button>
+            <button type="button" class="rc-x" aria-label="Remove ${esc(a.short)}"
+                    onclick="event.stopPropagation();removeRecent('${a.code}')"
+                    onkeydown="event.stopPropagation()">✕</button>
          </div>`
     ).join('');
 }
@@ -1853,14 +1857,16 @@ if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 window.addEventListener('DOMContentLoaded', () => {
     window.scrollTo(0, 0);
     // Initialise HX Tracker (defer ensures it's ready by DOMContentLoaded)
-    if (window.tracker) {
-        tracker.initialise({
-            env: window.location.hostname === 'localhost' ? 'development' : 'production',
-            service: 'parking-wizard',
-            organisation: 'Holiday Extras Limited',
-            lb: false,
-        });
-    }
+    try {
+        if (window.tracker) {
+            tracker.initialise({
+                env: window.location.hostname === 'localhost' ? 'development' : 'production',
+                service: 'parking-wizard',
+                organisation: 'Holiday Extras Limited',
+                lb: false,
+            });
+        }
+    } catch(e) {}
 
     // Restore flight cache so back-navigation never shows "Loading flights…"
     try {
