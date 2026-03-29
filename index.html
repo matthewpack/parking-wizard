@@ -250,14 +250,28 @@
             border-radius: 7px; border: 1px solid #c6f6d5; display: none;
         }
         .flight-hint.visible { display: block; }
-        .flight-search {
-            width: 100%; box-sizing: border-box;
-            border: 1.5px solid var(--border); border-radius: 10px;
-            padding: .625rem .875rem; font-size: .875rem; font-family: inherit;
-            margin-bottom: .5rem; background: var(--bg); color: var(--text);
-            outline: none; display: none;
+        /* ── Flight search bar ── */
+        .flt-search-wrap {
+            display: none; align-items: center; margin-bottom: .75rem;
+            border: 1.5px solid var(--purple); border-radius: 10px;
+            background: #fff; overflow: hidden;
         }
-        .flight-search:focus { border-color: var(--purple); }
+        .flt-search-wrap.visible { display: flex; }
+        .flt-search-inp {
+            flex: 1; border: none; outline: none; padding: .625rem .875rem;
+            font-size: .875rem; font-family: inherit; background: transparent; color: var(--text);
+            min-width: 0;
+        }
+        .flt-search-count {
+            font-size: .78rem; font-weight: 600; color: var(--purple);
+            padding: 0 .4rem; white-space: nowrap; flex-shrink: 0;
+        }
+        .flt-search-clear {
+            background: none; border: none; cursor: pointer; padding: .4rem .6rem;
+            font-size: 1.1rem; color: var(--muted); line-height: 1; flex-shrink: 0;
+        }
+        .flt-search-clear:hover { color: var(--text); }
+        mark.flt-hl { background: #fdd506; color: inherit; border-radius: 2px; padding: 0 1px; font-style: normal; }
         .flight-loading {
             padding: 1.25rem; text-align: center; color: var(--muted);
             font-size: .85rem;
@@ -412,7 +426,11 @@
         <h2 class="step-title">Your outbound flight</h2>
         <div class="flight-section">
             <p class="sec-lbl">Find your flight <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:.7rem;color:var(--muted)">(optional)</span></p>
-            <input type="search" id="outboundFlightSearch" class="flight-search" placeholder="Search destination or flight number…" autocomplete="off" oninput="filterFlights('outboundFlightList','outbound')">
+            <div class="flt-search-wrap" id="outboundSearchWrap">
+                <input type="search" id="outboundFlightSearch" class="flt-search-inp" placeholder="Search destination, time or airline…" autocomplete="off" oninput="filterFlights('outboundFlightList','outbound')">
+                <span class="flt-search-count" id="outboundFlightCount"></span>
+                <button class="flt-search-clear" id="outboundSearchClear" onclick="clearFlightSearch('outboundFlightList','outbound')" aria-label="Clear search" style="display:none">✕</button>
+            </div>
             <div class="flight-list" id="outboundFlightList" role="listbox"></div>
             <span class="skip-flight-link" tabindex="0"
                   onclick="skipFlight('outbound')"
@@ -442,7 +460,11 @@
             <p class="flt-ctx" id="returnFlightCtx"></p>
             <div class="flt-return-wrap">
                 <div class="flt-date-strip" id="returnDateStrip"></div>
-                <input type="search" id="returnFlightSearch" class="flight-search flt-return-search" placeholder="Search flight number…" autocomplete="off" oninput="filterFlights('returnFlightList','return')">
+                <div class="flt-search-wrap" id="returnSearchWrap">
+                    <input type="search" id="returnFlightSearch" class="flt-search-inp" placeholder="Search destination, time or airline…" autocomplete="off" oninput="filterFlights('returnFlightList','return')">
+                    <span class="flt-search-count" id="returnFlightCount"></span>
+                    <button class="flt-search-clear" id="returnSearchClear" onclick="clearFlightSearch('returnFlightList','return')" aria-label="Clear search" style="display:none">✕</button>
+                </div>
                 <div id="returnFlightList" role="listbox"></div>
             </div>
             <span class="skip-flight-link" tabindex="0"
@@ -1004,7 +1026,7 @@ function setupDropoffFlight() {
     if (!state.airport || !state.dropoffDate) return;
     const container = document.getElementById('outboundFlightList');
     container.innerHTML = '<div class="flight-loading">Loading flights…</div>';
-    document.getElementById('outboundFlightSearch').style.display = 'none';
+    document.getElementById('outboundSearchWrap').classList.remove('visible');
     const d0 = state.dropoffDate;
     const d1 = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + 1);
     Promise.all([fetchFlights(state.airport.code, d0), fetchFlights(state.airport.code, d1)])
@@ -1100,7 +1122,7 @@ function switchReturnDate(dateStr) {
 function _loadReturnFlights(outDest, date) {
     const container = document.getElementById('returnFlightList');
     container.innerHTML = '<div class="flight-loading">Loading flights…</div>';
-    document.getElementById('returnFlightSearch').style.display = 'none';
+    document.getElementById('returnSearchWrap').classList.remove('visible');
     fetchFlights(outDest, date, { destination: state.airport.code })
         .then(flights => renderFlightList('returnFlightList', flights, 'return'));
 }
@@ -1129,6 +1151,25 @@ function onReturnTime(h) {
 // ─── Flight picker ─────────────────────────────────────────────────────────────
 function _searchInputId(containerId) {
     return containerId === 'outboundFlightList' ? 'outboundFlightSearch' : 'returnFlightSearch';
+}
+function _searchWrapId(containerId)  { return containerId === 'outboundFlightList' ? 'outboundSearchWrap'  : 'returnSearchWrap';  }
+function _searchCountId(containerId) { return containerId === 'outboundFlightList' ? 'outboundFlightCount' : 'returnFlightCount';  }
+function _searchClearId(containerId) { return containerId === 'outboundFlightList' ? 'outboundSearchClear' : 'returnSearchClear';  }
+
+// Wraps first occurrence of q in text with a yellow highlight mark, returns safe HTML string.
+function _highlight(text, q) {
+    if (!q || !text) return esc(text || '');
+    const lo = text.toLowerCase(), ql = q.toLowerCase();
+    const i = lo.indexOf(ql);
+    if (i === -1) return esc(text);
+    return esc(text.slice(0, i)) +
+           '<mark class="flt-hl">' + esc(text.slice(i, i + q.length)) + '</mark>' +
+           esc(text.slice(i + q.length));
+}
+
+function _setSearchCount(containerId, n, total) {
+    const countEl = document.getElementById(_searchCountId(containerId));
+    if (countEl) countEl.textContent = n === total ? n + ' flights' : n + ' of ' + total + ' flights';
 }
 
 function renderFlightList(containerId, flights, type) {
@@ -1161,8 +1202,16 @@ function renderFlightList(containerId, flights, type) {
     // Flat combined array — indexed by data-idx in every flight row
     container._flights = [...recents, ...day0, ...day1];
 
-    const inp = document.getElementById(_searchInputId(containerId));
-    if (inp) { inp.value = ''; inp.style.display = flights.length ? '' : 'none'; }
+    const wrap = document.getElementById(_searchWrapId(containerId));
+    const inp  = document.getElementById(_searchInputId(containerId));
+    const clearBtn = document.getElementById(_searchClearId(containerId));
+    if (inp) inp.value = '';
+    if (clearBtn) clearBtn.style.display = 'none';
+    if (wrap) wrap.classList.toggle('visible', container._flights.length > 0);
+
+    // Count: deduplicated by grouping (same as display)
+    const displayCount = _groupCodeshares(container._flights, container._flights).length;
+    _setSearchCount(containerId, displayCount, displayCount);
 
     if (!container._flights.length) { _renderNoResults(container, ''); return; }
     _renderFlightStructure(container, recents, day0, day1, type);
@@ -1234,7 +1283,7 @@ function _groupCodeshares(subset, allFlights) {
 }
 
 // Returns HTML string for a subset of flight rows. Indexes into allFlights for stable data-idx.
-function _flightRowsHtml(subset, allFlights, type) {
+function _flightRowsHtml(subset, allFlights, type, q = '') {
     const selFlight = type === 'outbound' ? state.dropoffFlight : state.returnFlight;
     const TERM_NAMES = { N:'North Terminal', S:'South Terminal', T:'Tunnel Terminal' };
     let html = '';
@@ -1295,7 +1344,7 @@ function _flightRowsHtml(subset, allFlights, type) {
                         </span>
                         <span class="fr-arrow" aria-hidden="true">→</span>
                         <span class="fr-dest">
-                            <div>${esc(f.dest)}</div>
+                            <div>${_highlight(f.dest, q)}</div>
                             ${noteParts ? `<div class="fr-note">${noteParts}</div>` : ''}
                         </span>
                         ${tailfinHtml}
@@ -1306,13 +1355,17 @@ function _flightRowsHtml(subset, allFlights, type) {
 }
 
 function filterFlights(containerId, type) {
-    const inp       = document.getElementById(_searchInputId(containerId));
+    const inp      = document.getElementById(_searchInputId(containerId));
+    const clearBtn = document.getElementById(_searchClearId(containerId));
     const container = document.getElementById(containerId);
-    const all       = container._flights || [];
-    const q         = inp ? inp.value.trim().toLowerCase() : '';
+    const all = container._flights || [];
+    const q   = inp ? inp.value.trim().toLowerCase() : '';
+
+    if (clearBtn) clearBtn.style.display = q ? '' : 'none';
 
     if (!q) {
-        // Restore structured view — re-derive the three buckets from flags on the stored list
+        const totalGroups = _groupCodeshares(all, all).length;
+        _setSearchCount(containerId, totalGroups, totalGroups);
         const recents = all.filter(f =>  f._isRecent);
         const day0    = all.filter(f => !f._isRecent && !f._nextDay);
         const day1    = all.filter(f => !f._isRecent &&  f._nextDay);
@@ -1320,19 +1373,38 @@ function filterFlights(containerId, type) {
         return;
     }
 
-    // Flat filtered list when searching — expand alias, match multiple fields
+    // Build a set of "primary codes" whose group contains a match
     const expanded = DEST_ALIASES[q] || q;
-    const filtered = all.filter(f => {
-        const dl = f.dest.toLowerCase(), al = f.airline.toLowerCase(), cl = f.code.toLowerCase();
-        return dl.includes(expanded) || dl.includes(q) || al.includes(q) ||
-               cl.includes(q) || f.destAirport.toLowerCase().includes(q);
-    });
+    const matches = (f) => {
+        const dl = f.dest.toLowerCase(), al = f.airline.toLowerCase();
+        const timeStr = pad2(f.depHour) + ':' + pad2(f.depMinute);
+        // Check the flight itself
+        if (dl.includes(expanded) || dl.includes(q) || al.includes(q) ||
+            f.code.toLowerCase().includes(q) || f.destAirport.toLowerCase().includes(q) ||
+            (f.destCountry || '').toLowerCase().includes(q) || timeStr.includes(q)) return true;
+        // Check sibling codes in same group
+        return all.some(s => s !== f &&
+            s.depHour === f.depHour && s.depMinute === f.depMinute &&
+            s.originAirport === f.originAirport && s.destAirport === f.destAirport &&
+            s.code.toLowerCase().includes(q));
+    };
+
+    const filtered = all.filter(matches);
+    const groups   = _groupCodeshares(filtered, all);
+    const total    = _groupCodeshares(all, all).length;
+    _setSearchCount(containerId, groups.length, total);
 
     if (!filtered.length) {
         _renderNoResults(container, inp.value.trim());
     } else {
-        container.innerHTML = '<div class="flight-list">' + _flightRowsHtml(filtered, all, type) + '</div>';
+        container.innerHTML = '<div class="flight-list">' + _flightRowsHtml(filtered, all, type, q) + '</div>';
     }
+}
+
+function clearFlightSearch(containerId, type) {
+    const inp = document.getElementById(_searchInputId(containerId));
+    if (inp) { inp.value = ''; inp.focus(); }
+    filterFlights(containerId, type);
 }
 
 function pickFlight(type, idx) {
