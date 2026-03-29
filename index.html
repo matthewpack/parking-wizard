@@ -313,17 +313,22 @@
         .fr-recent-remove:hover { color: var(--text); }
 
         /* ── Skip flight button ── */
-        .btn-skip {
-            display: block; width: 100%; margin-top: 1rem;
-            padding: .75rem 1rem; border: 1.5px solid var(--border);
-            border-radius: 10px; background: white;
-            font-size: .9rem; font-family: inherit; font-weight: 600;
-            color: var(--muted); cursor: pointer; text-align: center;
-            -webkit-tap-highlight-color: transparent;
-            transition: border-color .15s, color .15s;
+        .sec-lbl-row {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: .35rem;
         }
-        .btn-skip:hover { border-color: var(--purple); color: var(--purple); }
-        .btn-skip:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; border-color: var(--purple); color: var(--purple); }
+        .sec-lbl-row .sec-lbl { margin-bottom: 0; }
+        .btn-skip {
+            padding: .3rem .75rem; border: 1.5px solid var(--purple);
+            border-radius: 20px; background: white;
+            font-size: .75rem; font-family: inherit; font-weight: 600;
+            color: var(--purple); cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            transition: background .15s, color .15s;
+            white-space: nowrap;
+        }
+        .btn-skip:hover { background: var(--purple); color: #fff; }
+        .btn-skip:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
 
         /* ── Bordered wrapper containing date strip + search + rows ── */
         .flt-return-wrap {
@@ -467,7 +472,10 @@
     <section class="step" id="step-3">
         <h2 class="step-title">Your outbound flight</h2>
         <div class="flight-section">
-            <p class="sec-lbl">Find your flight</p>
+            <div class="sec-lbl-row">
+                <p class="sec-lbl">Find your flight</p>
+                <button type="button" class="btn-skip" onclick="skipFlight('outbound')">Skip</button>
+            </div>
             <div class="flt-date-strip" id="outboundDateStrip"></div>
             <div class="flt-search-wrap" id="outboundSearchWrap">
                 <input type="text" id="outboundFlightSearch" class="flt-search-inp" placeholder="Search destination, time or airline…" autocomplete="off" oninput="filterFlights('outboundFlightList','outbound')">
@@ -475,7 +483,6 @@
                 <button class="flt-search-clear" id="outboundSearchClear" onclick="clearFlightSearch('outboundFlightList','outbound')" aria-label="Clear search" style="display:none">✕</button>
             </div>
             <div id="outboundFlightList" role="listbox"></div>
-            <button type="button" class="btn-skip" onclick="skipFlight('outbound')">Skip — I'll enter the drop-off time manually</button>
         </div>
     </section>
 
@@ -498,13 +505,15 @@
     <section class="step" id="step-6">
         <h2 class="step-title">Your return flight</h2>
         <div class="flight-section" id="returnFlightSection">
-            <p class="flt-ctx" id="returnFlightCtx"></p>
+            <div class="sec-lbl-row">
+                <p class="flt-ctx" id="returnFlightCtx" style="margin-bottom:0"></p>
+                <button type="button" class="btn-skip" onclick="skipFlight('return')">Skip</button>
+            </div>
             <div class="flt-return-wrap">
                 <div class="flt-date-strip" id="returnDateStrip"></div>
 
                 <div id="returnFlightList" role="listbox"></div>
             </div>
-            <button type="button" class="btn-skip" onclick="skipFlight('return')">Skip — I'll enter the collection time manually</button>
         </div>
     </section>
 
