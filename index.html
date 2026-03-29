@@ -382,7 +382,8 @@
             opacity: .92; margin-left: auto;
         }
         .flight-no-results { padding: .75rem 1rem; }
-        .fnr-msg { font-size: .9rem; color: var(--muted); margin-bottom: .625rem; }
+        .fnr-msg { font-size: .9rem; color: var(--muted); margin-bottom: .5rem; }
+        .fnr-hint { font-size: .8rem; color: var(--muted); font-style: italic; line-height: 1.5; margin-bottom: .625rem; }
         .fnr-opt {
             padding: .625rem .875rem; font-size: .875rem; color: var(--purple);
             cursor: pointer; border-radius: 8px;
@@ -1488,9 +1489,15 @@ function _renderNoResults(container, query) {
         : isReturn
             ? `No flights arriving at <strong>${esc(airportName)}</strong> on <strong>${esc(dateLabel)}</strong>`
             : `No flights departing <strong>${esc(airportName)}</strong> on <strong>${esc(dateLabel)}</strong>`;
+    // For return flights with no query, add a gentle nudge — customers sometimes enter
+    // their car collection date one day off from when their flight actually lands.
+    const hint = (!query && isReturn)
+        ? `<div class="fnr-hint">If your flight lands close to midnight, it may arrive the day before or after your planned collection date — try the other dates above.</div>`
+        : '';
     container.innerHTML =
         `<div class="flight-list"><div class="flight-no-results">
             <div class="fnr-msg">${msg}</div>
+            ${hint}
             <div class="fnr-options">
                 <div class="fnr-opt" onclick="skipFlight('${container.id === 'outboundFlightList' ? 'outbound' : 'return'}')">
                     Enter time manually instead
