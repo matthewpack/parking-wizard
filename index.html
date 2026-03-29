@@ -741,14 +741,17 @@ function trackPage(stageNum, stageName) {
 function updateSummary() { /* no-op — strip removed */ }
 
 // ─── Navigation ────────────────────────────────────────────────────────────────
-const STEP_LABELS = ['','airport','dropoff-date','dropoff-flight','dropoff-time','return-date','return-flight','return-time','search'];
+const STEP_LABELS  = ['','airport','dropoff-date','dropoff-flight','dropoff-time','return-date','return-flight','return-time','search'];
+const STEP_HASHES  = ['','flying-from','parking-from','outbound-flight','dropoff-time','return-date','return-flight','return-time','search-summary'];
+const STEP_TITLES  = ['','Flying from','Parking from','Outbound flight','Drop-off time','Return date','Return flight','Return time','Search summary'];
 
 function goToStep(n, fromHistory) {
     document.getElementById('step-' + currentStep).classList.remove('active');
     currentStep = n;
     document.getElementById('step-' + n).classList.add('active');
 
-    if (!fromHistory) history.pushState({ step: n }, '', '#step' + n);
+    if (!fromHistory) history.pushState({ step: n }, '', '#' + STEP_HASHES[n]);
+    document.title = STEP_TITLES[n] + ' — Airport Parking | Holiday Extras';
 
     const body = document.querySelector('#step-' + n + ' .step-body');
     if (body) body.scrollTop = 0;
@@ -1817,7 +1820,8 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     // Hash navigation on load
-    history.replaceState({ step: 1 }, '', '#step1');
+    history.replaceState({ step: 1 }, '', '#flying-from');
+    document.title = 'Flying from — Airport Parking | Holiday Extras';
     trackPage(1, 'airport');
 });
 </script>
