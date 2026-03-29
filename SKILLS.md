@@ -1,6 +1,6 @@
 # Parking Wizard — AI Skills Reference
 
-This document gives an AI assistant everything it needs to recreate a flight search and parking booking search using the Parking Wizard API. All endpoints are local to the running Express server.
+This document gives an AI assistant everything it needs to search for flights and submit a parking booking using the Parking Wizard API. All endpoints are local to the running Express server.
 
 ---
 
@@ -45,12 +45,6 @@ GET /api/flights
 curl "http://localhost:8080/api/flights?location=LGW&date=2026-04-18"
 ```
 
-With a filter:
-
-```bash
-curl "http://localhost:8080/api/flights?location=LGW&date=2026-04-18&query=Ryanair"
-```
-
 ### Response
 
 Raw JSON array from the Holiday Extras dock-yard API. Each element contains flight metadata including airline, destination, departure/arrival times, and terminal.
@@ -59,9 +53,21 @@ Raw JSON array from the Holiday Extras dock-yard API. Each element contains flig
 
 ## Skill 2 — Search for Return Flights
 
-**Goal:** Given the holiday destination airport, the return date, and the parking airport, return a list of flights arriving back at the parking airport on that date.
+**Goal:** Given the holiday destination airport and the date the customer plans to collect their car, return a list of flights arriving back at the parking airport on that date.
 
 **Key difference from outbound:** The `location` param is the **origin of the return leg** (where the holiday was), and `destination` is the **parking airport** the traveller is returning to.
+
+### Critical date logic
+
+The upstream API filters by **departure date from the origin airport**, not arrival date at the UK airport. For overnight long-haul flights (e.g. Bangkok→London: departs Mon, arrives Tue), you must query **both the collection date AND the day before**, then filter the merged results to only show flights whose `arrivalDate` matches the collection date the customer chose.
+
+```
+collectionDate    = the date the customer said they'll pick up their car
+queryDate1        = collectionDate - 1 day  (catches overnight/long-haul departures)
+queryDate2        = collectionDate           (catches same-day short-haul departures)
+```
+
+Fetch both, merge (deduplicate by `code + departureDate + depHour + depMinute`), then keep only flights where `arrivalDate === collectionDate`.
 
 ### Endpoint
 
@@ -73,8 +79,8 @@ GET /api/flights
 
 | Param | Type | Example | Notes |
 |---|---|---|---|
-| `location` | string | `ALC` | 3-letter IATA code of the holiday/origin airport |
-| `date` | string | `2026-04-25` | Return date in `YYYY-MM-DD` format |
+| `location` | string | `BKK` | 3-letter IATA code of the holiday/origin airport |
+| `date` | string | `2026-04-20` | **Departure** date from the origin airport (see date logic above) |
 | `destination` | string | `LGW` | 3-letter IATA code of the **parking airport** (return destination) |
 
 ### Optional parameters
@@ -83,15 +89,17 @@ GET /api/flights
 |---|---|---|---|
 | `query` | string | `easyJet` | Free-text filter |
 
-### Example request
+### Example — customer collecting car on Tue 21 Apr, flew from Bangkok
 
 ```bash
-curl "http://localhost:8080/api/flights?location=ALC&date=2026-04-25&destination=LGW"
+# Fetch departures on Mon 20 Apr (overnight flight, lands Tue 21 Apr)
+curl "http://localhost:8080/api/flights?location=BKK&date=2026-04-20&destination=LGW"
+
+# Fetch departures on Tue 21 Apr (same-day short-haul)
+curl "http://localhost:8080/api/flights?location=BKK&date=2026-04-21&destination=LGW"
 ```
 
-### Response
-
-Same raw JSON format as the outbound response.
+Merge both responses. BA2230 (departs BKK Mon 20, arrives LGW Tue 21) will appear in the first response with `arrivalDate: "2026-04-21"` — keep it. Any flight with `arrivalDate !== "2026-04-21"` is discarded.
 
 ---
 
@@ -134,9 +142,9 @@ Content-Type: application/json
 |---|---|---|---|
 | `parkingAirport` | **Yes** | 3-letter IATA | Airport where the car is parked |
 | `parkingDropoffDate` | **Yes** | `YYYY-MM-DD` | Date the car is dropped off |
-| `parkingDropoffTime` | **Yes** | `HH:MM` (24h) | Time the car is dropped off |
+| `parkingDropoffTime` | **Yes** | `HH:MM` (24h) | Time the car is dropped off. Valid edge values: `00:01` (just after midnight) and `23:59` (just before midnight) |
 | `parkingReturnDate` | **Yes** | `YYYY-MM-DD` | Date the car is collected |
-| `parkingReturnTime` | **Yes** | `HH:MM` (24h) | Time the car is collected |
+| `parkingReturnTime` | **Yes** | `HH:MM` (24h) | Time the car is collected. Same edge values apply |
 | `outboundFlight` | No | object | Selected outbound flight (omit if user skipped) |
 | `outboundFlight.code` | No | string | IATA flight code, e.g. `BA1234` |
 | `outboundFlight.departureTerminal` | No | string | Terminal letter/number, e.g. `N`, `S`, `2` |
@@ -231,14 +239,17 @@ curl http://localhost:8080/api/log
 An AI assistant can guide a complete booking by chaining these skills:
 
 ```
-1. Ask user for: parking airport, drop-off date, return date
-   (times default to 08:00 drop-off, 16:00 return if not specified)
+1. Ask user for: parking airport, drop-off date, return/collection date
+   (times can be asked next, or default to 08:00 drop-off, 16:00 return)
 
 2. SKILL 1: GET /api/flights?location={airport}&date={dropoffDate}
    → Present flight list, ask user to pick or skip
 
-3. SKILL 2: GET /api/flights?location={destAirport}&date={returnDate}&destination={airport}
-   → Present return flight list, ask user to pick or skip
+3. SKILL 2 (two requests, merged and filtered):
+   GET /api/flights?location={destAirport}&date={collectionDate-1}&destination={airport}
+   GET /api/flights?location={destAirport}&date={collectionDate}&destination={airport}
+   → Filter merged results to arrivalDate === collectionDate
+   → Present filtered list, ask user to pick or skip
 
 4. SKILL 3: POST /api/parking/search
    → Build payload from all collected values
@@ -249,8 +260,12 @@ An AI assistant can guide a complete booking by chaining these skills:
 
 ### Notes
 
-- **Times** are expressed in 24-hour `HH:MM` format. If the user gives times like "8am", convert to `08:00`.
+- **Times** are expressed in 24-hour `HH:MM` format. If the user gives times like "8am", convert to `08:00`. The wizard supports `00:01` (just after midnight) and `23:59` (just before midnight) as edge-case values — these are not the same as `00:00`/`24:00`.
+- **Return collection time — overnight logic:** If the return flight lands the day *before* the collection date, suggest a collection time in the early hours of the collection date:
+  - Flight lands after 22:00 (e.g. 23:40): suggest `(landingHour + 2) % 24` → `01:00`
+  - Flight lands earlier (e.g. 17:10): suggest `00:01` (start of collection day)
+  - Flight lands on the collection date: suggest `min(23:00, landingHour + 2)`
 - **Flights are optional.** If the user doesn't have a flight or doesn't want to provide one, omit `outboundFlight` / `returnFlight` from the POST body entirely.
 - **Terminal defaults** — if you don't know the terminal, omit `departureTerminal` / `arrivalTerminal` from the flight object. The HX site will still load correctly.
-- **Flight cache** — flight data is cached server-side for 4 hours. If the data looks stale (e.g. no flights on a busy route), restarting the server clears the cache.
+- **Flight cache** — flight data is cached server-side for 4 hours. If the data looks stale, restarting the server clears the cache.
 - **IATA codes** — always uppercase, exactly 3 letters. Common UK airports: `LGW` (Gatwick), `LHR` (Heathrow), `MAN` (Manchester), `EDI` (Edinburgh), `BHX` (Birmingham), `BRS` (Bristol), `STN` (Stansted), `LTN` (Luton).

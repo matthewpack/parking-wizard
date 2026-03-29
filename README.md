@@ -7,12 +7,16 @@ A streamlined, mobile-first booking wizard for Holiday Extras airport parking. G
 ## Features
 
 - **8-step guided wizard** — airport → drop-off date → outbound flight → drop-off time → return date → return flight → return time → review & submit
-- **GPS + IP location detection** — sorts airports by proximity on first load
-- **Flight search** — live flight data with full-text search (Fuse.js), codeshare deduplication, and recent/favourite flights
-- **Smart time defaults** — pre-selects recommended drop-off/return times based on flight schedule
+- **GPS + IP location detection** — IP lookup fires immediately on load; GPS runs in parallel and upgrades the result silently if permission is already granted. No delay waiting for GPS to time out.
+- **Flight search** — live flight data with full-text search (Fuse.js), codeshare deduplication, city name display, and recent/favourite flights
+- **Smart time defaults** — pre-selects recommended drop-off/return times based on flight schedule, including correct midnight-wrap logic for overnight long-haul returns
+- **Return flight date logic** — date tabs represent the day the flight *lands* at the parking airport. Both the selected date and the day before are fetched from the API and merged, then filtered to only show arrivals on the chosen date — so Bangkok→London overnight flights appear under the correct landing date
+- **Edge-case time picker** — 25 options: `00:01`, `01:00`–`23:00`, `23:59`; overnight collection times wrap correctly past midnight
 - **Recents & favourites** — airports and flights persist in localStorage for quick repeat bookings
 - **Seamless HX handoff** — submits to Holiday Extras with all parameters serialised into the correct URL format
 - **Server-side flight caching** — 4-hour in-memory cache on the proxy layer to reduce upstream API calls
+- **JS/CSS minification** — `html-minifier-terser` runs as a `heroku-postbuild` step, saving ~5 KiB on every deploy
+- **iPhone safe-area support** — `viewport-fit=cover` + `env(safe-area-inset-top)` for PWA/home-screen installs
 
 ---
 
@@ -25,6 +29,7 @@ A streamlined, mobile-first booking wizard for Holiday Extras airport parking. G
 | Font | Nunito (self-hosted WOFF2) |
 | Backend | Node.js 20 + Express 4 |
 | Compression | gzip/Brotli via `compression` middleware |
+| Minification | `html-minifier-terser` (Heroku post-build) |
 | Deployment | Heroku-compatible (`Procfile`) |
 
 ---
@@ -83,9 +88,11 @@ Proxy to the Holiday Extras flight search API with in-memory caching (4-hour TTL
 | Param | Required | Format | Description |
 |---|---|---|---|
 | `location` | Yes | 3-letter IATA | Departure airport for outbound; origin airport for return |
-| `date` | Yes | `YYYY-MM-DD` | Departure date (outbound) or arrival date (return) |
+| `date` | Yes | `YYYY-MM-DD` | The API filters by **departure date from the origin airport** — not arrival date |
 | `destination` | No | 3-letter IATA | Present only for return flight searches; set to the parking airport code |
 | `query` | No | string | Free-text filter forwarded to upstream API |
+
+> **Important — return flight date handling:** The API parameter `date` is the *departure* date from the origin airport, not the arrival date at the UK airport. For overnight long-haul flights (e.g. Bangkok→London departing Monday, arriving Tuesday), the client fetches **both the collection date and the day before**, merges the results, and then filters to only show flights whose computed `arrivalDate` matches the date the user tapped. See the client's `_loadReturnFlights()` function.
 
 **Outbound search example**
 
@@ -96,8 +103,10 @@ GET /api/flights?location=LGW&date=2026-04-18
 **Return flight search example**
 
 ```
-GET /api/flights?location=ALC&date=2026-04-25&destination=LGW
+GET /api/flights?location=BKK&date=2026-04-20&destination=LGW
+GET /api/flights?location=BKK&date=2026-04-21&destination=LGW
 ```
+*(Both requests are made; results are merged and filtered by arrivalDate)*
 
 **Response**
 
@@ -145,9 +154,9 @@ Accepts a semantic search payload, builds the Holiday Extras redirect URL, logs 
 |---|---|---|
 | `parkingAirport` | Yes | 3-letter IATA code of the parking airport |
 | `parkingDropoffDate` | Yes | Date the car is dropped off (`YYYY-MM-DD`) |
-| `parkingDropoffTime` | Yes | Time the car is dropped off (`HH:MM`, 24-hour) |
+| `parkingDropoffTime` | Yes | Time the car is dropped off (`HH:MM`, 24-hour; may be `00:01` or `23:59`) |
 | `parkingReturnDate` | Yes | Date the car is collected (`YYYY-MM-DD`) |
-| `parkingReturnTime` | Yes | Time the car is collected (`HH:MM`, 24-hour) |
+| `parkingReturnTime` | Yes | Time the car is collected (`HH:MM`, 24-hour; may be `00:01` or `23:59`) |
 | `outboundFlight` | No | Selected outbound flight object |
 | `outboundFlight.code` | No | IATA flight code, e.g. `BA1234` |
 | `outboundFlight.departureTerminal` | No | Terminal letter/number, e.g. `N`, `S`, `2` |
@@ -164,8 +173,6 @@ Accepts a semantic search payload, builds the Holiday Extras redirect URL, logs 
   "redirectUrl": "https://www.holidayextras.com/static/?selectProduct=cp&reloadKey=d1b72610#/categories?agent=WEB1&depart=LGW&out=2026-04-18&park_from=08%3A00&in=2026-04-25&park_to=16%3A00&flight=BA1234&terminal=N&redirectReferal=carpark&from_categories=true"
 }
 ```
-
-The client navigates to `redirectUrl`, landing the user on the Holiday Extras product selection page with all fields pre-filled.
 
 **Errors**
 
@@ -207,25 +214,30 @@ After normalisation on the client, each flight has this shape:
 
 ```js
 {
-  code:          "BA1234",       // Primary IATA flight code
+  code:          "BA1234",          // Primary IATA flight code
   airline:       "British Airways",
   airlineCode:   "BA",
-  dest:          "Madrid",       // Destination city name
-  destAirport:   "MAD",          // Destination IATA code
+  dest:          "Madrid Barajas",  // Destination airport name
+  destCity:      "Madrid",          // Destination city (shown on second line in picker)
+  destCountry:   "Spain",
+  destAirport:   "MAD",             // Destination IATA code
   origin:        "London Gatwick",
   originAirport: "LGW",
-  depHour:       10,             // Departure hour (0–23)
-  depMinute:     15,             // Departure minute
-  hour:          13,             // Arrival hour
-  minute:        45,             // Arrival minute
-  terminal:      "N",            // Departure terminal
+  depHour:       10,                // Departure hour (0–23)
+  depMinute:     15,                // Departure minute
+  hour:          13,                // Arrival hour at destination
+  minute:        45,                // Arrival minute
+  terminal:      "N",               // Departure/arrival terminal
   isCodeshare:   false,
-  operatedBy:    null,           // Actual carrier if codeshare
-  departureDate: "2026-04-18",
-  arrivalDate:   "2026-04-18",
+  operatedBy:    null,              // Actual carrier if codeshare
+  departureDate: "2026-04-18",      // ISO date of departure from origin
+  arrivalDate:   "2026-04-18",      // ISO date of arrival at destination (may differ for overnight flights)
+  tailfin:       "https://…",       // Airline tailfin image URL
   _raw:          { /* original upstream payload */ }
 }
 ```
+
+`arrivalDate` is computed client-side: if the arrival time is earlier than the departure time (clock crosses midnight), the arrival date is set to departureDate + 1 day.
 
 Codeshare flights are grouped into a single display row, with the operating carrier shown as the primary entry.
 
@@ -235,32 +247,47 @@ Codeshare flights are grouped into a single display row, with the operating carr
 
 ```
 Step 1  Airport selection
-        → GPS permission prompt → IP geolocation fallback → default UK centre
+        → IP geolocation fires immediately on load
+        → GPS runs in parallel and upgrades the sort order silently if granted
         → Airports sorted by distance; recents shown at top
 
 Step 2  Drop-off date
         → Calendar picker (today + up to 365 days ahead)
 
-Step 3  Outbound flight  (skippable)
+Step 3  Outbound flight  (skippable — Skip button sits on the title line)
         → Flights fetched from /api/flights for selected airport + date
-        → Full-text search across airline, destination, flight code
+        → Full-text search across airline, destination, city, flight code
+        → City name shown on second line of each flight row
         → Recent/favourite flights highlighted
 
 Step 4  Drop-off time
-        → 24 hourly buttons; recommended time pre-highlighted based on flight
+        → 25 options: 00:01, 01:00–23:00, 23:59
+        → Suggested time = flight departure time minus 3 hours (minimum 00:01)
+        → Green hint bar shows flight code, departure time, date, airport, terminal
+        → Tip box explains grace periods and Overstay Waiver
 
 Step 5  Return date
         → Calendar picker (min: day after drop-off, max: +100 days)
 
-Step 6  Return flight  (skippable)
-        → Flights fetched from /api/flights for destination airport + return date
+Step 6  Return flight  (skippable — Skip button sits on the title line)
+        → Two date tabs: [day before collection date] and [collection date]
+        → Tabs represent ARRIVAL dates at the parking airport
+        → Both dates are fetched from the API; results merged and filtered by arrivalDate
+        → Overnight long-haul flights (e.g. Bangkok→London) appear under the correct landing date
+        → No-results message names the specific airport and date; hints at adjacent-date check
         → Same search/filter UI as Step 3
 
-Step 7  Return time
-        → Same time picker; recommended time pre-highlighted based on return flight
+Step 7  Return time  (question includes the collection date for clarity)
+        → Same 25-option picker as Step 4
+        → If flight lands on the day BEFORE the collection date:
+            - lands 23:xx → suggest (hour + 2) % 24 (wraps to early morning)
+            - lands earlier → suggest 00:01 (start of collection day)
+        → If flight lands on the collection date: suggest landing time + 2 hours
+        → Green hint bar shows flight code, landing time, date, airport, terminal
+        → Tip box explains grace periods and Overstay Waiver
 
 Step 8  Review & submit
-        → Summary of all selections
+        → Summary of all selections with natural-language dates and formatted times
         → POST /api/parking/search in background (prefetch)
         → On confirm: navigate to redirectUrl
 ```
@@ -279,13 +306,21 @@ Any platform that runs `node server.js` and exposes a `PORT` environment variabl
 
 Static assets (images, fonts, fuse.js) are served with a 30-day `Cache-Control` header. `index.html` is served with `no-cache` so deployments take effect immediately.
 
+A `heroku-postbuild` npm script runs `html-minifier-terser` to minify the JS and CSS inside `index.html` before the dyno starts. Flags used: `--minify-js '{"compress":false,"mangle":false}'` — compression is disabled to avoid code transformations that could affect GPS/geolocation callbacks; mangling is disabled to preserve function names used in inline `onclick` handlers.
+
+**Tail live logs:**
+```bash
+heroku logs --tail --app parking-wizard-hx
+```
+
 ---
 
 ## Local Development Tips
 
 - **Flight data is cached for 4 hours.** Restart the server to bust the cache during development.
 - **Back-button support** — the wizard saves state to `sessionStorage`, so a full page reload is needed to reset the flow during testing.
-- **No build step** — edit `index.html` or `server.js` and refresh.
+- **No build step locally** — edit `index.html` or `server.js` and refresh. Minification only runs on Heroku.
+- **GPS on localhost** — browsers may block geolocation on plain `http://`. Use Chrome's localhost exception or test on a deployed URL.
 
 ---
 
@@ -294,7 +329,7 @@ Static assets (images, fonts, fuse.js) are served with a 30-day `Cache-Control` 
 | Service | Purpose |
 |---|---|
 | `holidayextras.com/dock-yard/flight/search` | Live flight data API |
-| `ipapi.co/json/` | IP-based geolocation fallback |
+| `ipapi.co/json/` | IP-based geolocation (fires immediately on load) |
 | HX Tracker v6 (CloudFront CDN) | Analytics / event tracking |
 
 ---
