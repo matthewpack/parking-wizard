@@ -252,9 +252,9 @@
         .fr-time  { font-size: 1.25rem; font-weight: 800; color: var(--purple); line-height: 1.1; }
         .fr-time-sub { font-size: .75rem; color: var(--text); font-weight: 600; line-height: 1.4; white-space: nowrap; }
         .fr-arrow { color: var(--muted); font-size: .875rem; flex-shrink: 0; }
-        .fr-dest  { flex: 1; font-size: .875rem; color: var(--text); }
-        .fr-dest > div:first-child { font-weight: 700; color: #1a1a2e; }
-        .fr-dest-city { font-weight: 400; color: var(--muted); font-size: .8rem; margin-left: .25rem; }
+        .fr-dest  { flex: 1; min-width: 0; font-size: .875rem; color: var(--text); overflow: hidden; }
+        .fr-dest > div:first-child { font-weight: 700; color: #1a1a2e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .fr-dest-city { display: block; font-weight: 400; color: var(--muted); font-size: .78rem; line-height: 1.3; }
         .fr-note  { font-size: .78rem; color: var(--muted); margin-top: .15rem; }
         .flight-hint {
             font-size: .85rem; color: var(--green); font-weight: 600;
@@ -1537,7 +1537,8 @@ function _flightRowsHtml(subset, allFlights, type, words = []) {
                         </span>
                         <span class="fr-arrow" aria-hidden="true">→</span>
                         <span class="fr-dest">
-                            <div>${_highlightWords(f.dest, words)}${f.destCity && f.destCity !== f.dest ? `<span class="fr-dest-city">${esc(f.destCity)}</span>` : ''}</div>
+                            <div>${_highlightWords(f.dest, words)}</div>
+                            ${f.destCity && f.destCity !== f.dest ? `<span class="fr-dest-city">${esc(f.destCity)}</span>` : ''}
                             ${noteParts ? `<div class="fr-note">${noteParts}</div>` : ''}
                         </span>
                         ${tailfinHtml}${removeBtnHtml}
