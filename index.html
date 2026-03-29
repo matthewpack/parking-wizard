@@ -6,10 +6,10 @@
     <meta name="description" content="Book airport parking with Holiday Extras at all major UK airports.">
     <meta name="theme-color" content="#552e92">
     <title>Airport Parking | Holiday Extras</title>
-    <link rel="icon" href="mole-favicon-package/mole-favicon.ico" sizes="any">
-    <link rel="icon" href="mole-favicon-package/mole-favicon-32.png" type="image/png" sizes="32x32">
-    <link rel="icon" href="mole-favicon-package/mole-favicon-16.png" type="image/png" sizes="16x16">
-    <link rel="apple-touch-icon" href="mole-favicon-package/mole-favicon-180.png">
+    <link rel="icon" href="mole-favicon-package/mole-yellow-final.ico" sizes="any">
+    <link rel="icon" href="mole-favicon-package/mole-yellow-final-32.png" type="image/png" sizes="32x32">
+    <link rel="icon" href="mole-favicon-package/mole-yellow-final-16.png" type="image/png" sizes="16x16">
+    <link rel="apple-touch-icon" href="mole-favicon-package/mole-yellow-final-180.png">
     <link rel="preconnect" href="https://www.holidayextras.com">
     <link rel="dns-prefetch" href="https://www.holidayextras.com">
     <link rel="preload" as="image" fetchpriority="high" href="get-holiday-ready.jpg">
@@ -1174,7 +1174,7 @@ function switchReturnDate(dateStr) {
 function _loadReturnFlights(outDest, date) {
     const container = document.getElementById('returnFlightList');
     container.innerHTML = '<div class="flight-loading">Loading flights…</div>';
-    document.getElementById('returnSearchWrap').classList.remove('visible');
+    document.getElementById('returnSearchWrap')?.classList.remove('visible');
     fetchFlights(outDest, date, { destination: state.airport.code })
         .then(flights => renderFlightList('returnFlightList', flights, 'return'));
 }
@@ -1519,13 +1519,16 @@ function filterFlights(containerId, type) {
         container.innerHTML = '<div class="flight-list">' + _flightRowsHtml(filtered, all, type, words) + '</div>';
     }
 
-    // Scroll AFTER rendering — document is now at its new (shorter) height,
-    // so the scroll position won't be clamped back down.
+    // Scroll AFTER rendering so results appear just below the sticky search bar.
+    // Use the results container (a normal div, reliable offsetTop) rather than
+    // the sticky wrap (whose offsetTop is unreliable when stuck).
     const wrap = document.getElementById(_searchWrapId(containerId));
-    if (wrap) {
-        let el = wrap, top = 0;
-        while (el) { top += el.offsetTop; el = el.offsetParent; }
-        window.scrollTo({ top: Math.max(0, top - 8), behavior: 'instant' });
+    const resultsEl = document.getElementById(containerId);
+    if (wrap && resultsEl) {
+        let el = resultsEl, rTop = 0;
+        while (el) { rTop += el.offsetTop; el = el.offsetParent; }
+        const barH = wrap.offsetHeight;
+        window.scrollTo({ top: Math.max(0, rTop - barH - 8), behavior: 'instant' });
     }
 }
 
