@@ -1765,7 +1765,7 @@ window.addEventListener('DOMContentLoaded', () => {
             state.returnFlight  = s.returnFlight  || null;
             applyLocation(52.5, -1.5, 'default');
             renderRecents();
-            goToStep(8);
+            goToStep(8, true); // fromHistory=true — don't push, existing #step1…#step8 entries stay intact
             return;
         } catch(e) { sessionStorage.removeItem('wizard_return'); }
     }
