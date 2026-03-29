@@ -1479,9 +1479,15 @@ function _renderFlightStructure(container, recents, day0, day1, type) {
 }
 
 function _renderNoResults(container, query) {
+    const isReturn   = container.id === 'returnFlightList';
+    const viewDate   = isReturn ? _returnViewDate : _outboundViewDate;
+    const airportName = state.airport?.full || state.airport?.name || state.airport?.code || '';
+    const dateLabel  = viewDate ? fmtShort(viewDate) : 'this date';
     const msg = query
         ? `No flights found for <strong>${esc(query)}</strong>`
-        : 'No flights found for this date';
+        : isReturn
+            ? `No flights arriving at <strong>${esc(airportName)}</strong> on <strong>${esc(dateLabel)}</strong>`
+            : `No flights departing <strong>${esc(airportName)}</strong> on <strong>${esc(dateLabel)}</strong>`;
     container.innerHTML =
         `<div class="flight-list"><div class="flight-no-results">
             <div class="fnr-msg">${msg}</div>
