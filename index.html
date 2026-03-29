@@ -556,6 +556,29 @@ const DEST_ALIASES = {
     'turin':'turin',  // identity — just ensures "tur" suggestions rank it
 };
 
+// Airline ICAO code → airline name as it appears in the API response.
+// The HX API returns IATA carrier codes (U2, BA…) not ICAO (EZY, BAW…),
+// so ICAO searches would otherwise return nothing.
+const AIRLINE_ALIASES = {
+    'ezy':'easyjet',  'ejs':'easyjet',
+    'ryr':'ryanair',  'fr':'ryanair',
+    'baw':'british airways',
+    'vir':'virgin atlantic',  'vs':'virgin atlantic',
+    'thy':'turkish airlines',
+    'dlh':'lufthansa',
+    'afr':'air france',
+    'klm':'klm',
+    'ibk':'iberia express',
+    'vle':'vueling',
+    'jet2':'jet2.com',
+    'tom':'tui',  'tfl':'tui',
+    'tcx':'tui',  'tui':'tui',
+    'wiz':'wizz air',  'wzz':'wizz air',
+    'nax':'norwegian',
+    'aee':'aegean',
+    'ath':'aegean',
+};
+
 // In-session cache so navigating back/forward doesn't re-fetch
 // Key: "LGW:2026-04-18:out" or "TRN:2026-04-28:in:LGW"
 const _flightCache = new Map();
@@ -1423,9 +1446,13 @@ function filterFlights(containerId, type) {
                 if ((pad2(f.depHour) + pad2(f.depMinute)).includes(wNorm)) matched.add(f.code);
             });
         }
-        // Fuse fuzzy search across all stored fields (dest, airline, airlineCode, code, country, terminal…)
-        if (w.length >= 1 && fuse) {
-            fuse.search(w).forEach(r => matched.add(r.item.code));
+        // Expand ICAO airline codes (e.g. "ezy" → "easyjet") before Fuse search
+        const fuseQ = AIRLINE_ALIASES[w] || DEST_ALIASES[w] || w;
+        // Fuse search across all stored fields (dest, airline, airlineCode, code, country, terminal…)
+        if (fuseQ.length >= 1 && fuse) {
+            fuse.search(fuseQ).forEach(r => matched.add(r.item.code));
+            // Also search original word if alias was substituted (catches partial code matches too)
+            if (fuseQ !== w) fuse.search(w).forEach(r => matched.add(r.item.code));
         }
         return matched;
     });
