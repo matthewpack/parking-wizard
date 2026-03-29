@@ -1214,15 +1214,16 @@ function renderFlightList(containerId, flights, type) {
     if (type === 'outbound') {
         const selFlight = state.dropoffFlight;
         if (selFlight) {
-            recentCodes.add(selFlight.code);
             const match = flights.find(f => f.code === selFlight.code);
-            recents.push({ ...(match || selFlight), _isRecent: true });
+            if (match) { recentCodes.add(selFlight.code); recents.push({ ...match, _isRecent: true }); }
         }
         if (state.airport) {
             Favourites.flights(state.airport.code)
                 .filter(f => !f.direction || f.direction === 'outbound')
                 .forEach(f => {
-                    if (!recentCodes.has(f.code)) { recentCodes.add(f.code); recents.push({ ...f, _isRecent: true }); }
+                    if (recentCodes.has(f.code)) return;
+                    const match = flights.find(fl => fl.code === f.code);
+                    if (match) { recentCodes.add(f.code); recents.push({ ...match, _isRecent: true }); }
                 });
         }
     }
