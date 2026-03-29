@@ -119,11 +119,17 @@ app.get('/api/log', (req, res) => {
     res.json(searchLog);
 });
 
-// Serve static files with sensible cache headers
+// Long-lived cache for immutable assets (images, fuse.js, favicons)
 app.use(express.static(path.join(__dirname), {
-    maxAge: 0,           // index.html — always revalidate
+    maxAge: '30d',
     etag:   true,
     lastModified: true,
+    setHeaders(res, filePath) {
+        // index.html must always revalidate so deploys take effect immediately
+        if (filePath.endsWith('index.html')) {
+            res.setHeader('Cache-Control', 'no-cache');
+        }
+    },
 }));
 
 app.listen(PORT, () => console.log('Parking wizard listening on port', PORT));

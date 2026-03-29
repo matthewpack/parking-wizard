@@ -12,7 +12,7 @@
     <link rel="apple-touch-icon" href="mole-favicon-package/mole-yellow-final-180.png">
     <link rel="preconnect" href="https://www.holidayextras.com">
     <link rel="dns-prefetch" href="https://www.holidayextras.com">
-    <link rel="preload" as="image" fetchpriority="high" href="get-holiday-ready.jpg">
+    <link rel="preload" as="image" fetchpriority="high" href="get-holiday-ready.webp" type="image/webp">
     <link rel="preload" as="font" type="font/woff2" crossorigin href="nunito-latin.woff2">
     <script defer src="//dbq5t2jl0vcpj.cloudfront.net/hx-tracker/tracker-v6-latest.min.js"></script>
     <style>
@@ -411,7 +411,10 @@
 </header>
 
 <div class="hero-wrap" id="heroWrap">
-    <img src="get-holiday-ready.jpg" alt="" loading="eager" fetchpriority="high">
+    <picture>
+        <source type="image/webp" srcset="get-holiday-ready-824.webp 824w, get-holiday-ready.webp 1200w" sizes="100vw">
+        <img src="get-holiday-ready.jpg" alt="" loading="eager" fetchpriority="high" width="1200" height="341">
+    </picture>
 </div>
 
 <main class="container">
