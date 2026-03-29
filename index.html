@@ -1215,12 +1215,12 @@ function setupDropoffTime() {
     } else {
         hint.classList.remove('visible');
     }
-    renderTimePicker('dropoffTimeGrid', state.dropoffTime, state.dropoffFlight ? Math.max(0, state.dropoffFlight.hour - 3) : state.dropoffTime, onDropoffTime);
+    renderTimePicker('dropoffTimeGrid', state.dropoffTime, state.dropoffFlight ? Math.max(-1, state.dropoffFlight.hour - 3) : state.dropoffTime, onDropoffTime);
 }
 
 function onDropoffTime(h) {
     state.dropoffTime = h;
-    renderTimePicker('dropoffTimeGrid', h, state.dropoffFlight ? Math.max(0, state.dropoffFlight.hour - 3) : null, onDropoffTime);
+    renderTimePicker('dropoffTimeGrid', h, state.dropoffFlight ? Math.max(-1, state.dropoffFlight.hour - 3) : null, onDropoffTime);
     track('parking-wizard-stage4-dropoff-time', fmtTime(h));
     goToStep(5);
 }
@@ -1345,7 +1345,7 @@ function _returnSuggestedHour() {
         // e.g. lands 23:40 → suggest 01:00 ✓
         // If the flight lands earlier (e.g. 17:10), +2h stays in the previous evening —
         // useless for a next-day pickup — so default to 00:00 (start of collection day).
-        return (f.hour + 2 >= 24) ? (f.hour + 2) % 24 : 0;
+        return (f.hour + 2 >= 24) ? (f.hour + 2) % 24 : -1;
     }
     return Math.min(23, f.hour + 2);
 }
@@ -1792,8 +1792,8 @@ function skipFlight(type) {
 function renderTimePicker(containerId, selectedHour, suggestedHour, cb) {
     const grid = document.getElementById(containerId);
     grid.innerHTML = '';
-    // 00:00, 00:01, 01:00 … 23:00, 23:59  (26 values; -1 = 00:01, 24 = 23:59)
-    const values = [0, -1];
+    // 00:01, 01:00 … 23:00, 23:59  (25 values; -1 = 00:01, 24 = 23:59)
+    const values = [-1];
     for (let h = 1; h <= 23; h++) values.push(h);
     values.push(24);
     values.forEach(v => {
