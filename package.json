@@ -4,7 +4,8 @@
   "description": "Holiday Extras airport parking wizard",
   "scripts": {
     "start": "node server.js",
-    "dev": "PORT=8080 node server.js"
+    "dev": "PORT=8080 node server.js",
+    "heroku-postbuild": "html-minifier-terser index.html --minify-js '{\"compress\":true,\"mangle\":false}' --minify-css true --collapse-whitespace --remove-comments -o index.html"
   },
   "dependencies": {
     "compression": "^1.7.4",
@@ -12,5 +13,8 @@
   },
   "engines": {
     "node": "20.x"
+  },
+  "devDependencies": {
+    "html-minifier-terser": "^7.2.0"
   }
 }
