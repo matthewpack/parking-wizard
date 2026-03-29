@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5.0, viewport-fit=cover">
     <meta name="description" content="Book airport parking with Holiday Extras at all major UK airports.">
     <meta name="theme-color" content="#552e92">
     <title>Airport Parking | Holiday Extras</title>
@@ -62,7 +62,11 @@
         }
 
         /* ── Header ── */
-        header { line-height: 0; }
+        header {
+            line-height: 0;
+            background: #552e92;
+            padding-top: env(safe-area-inset-top);
+        }
         .header-logo {
             display: block;
             width: 100%;
