@@ -133,8 +133,8 @@ function indexHandler(req, res) {
         // Also inject window._basePath so the client JS API calls use the right prefix.
         const html = getIndexHtml()
             .replace(
-                '<meta charset="UTF-8">',
-                `<meta charset="UTF-8"><base href="${MOUNT_PATH}/">`
+                '<head>',
+                `<head><base href="${MOUNT_PATH}/">`
             )
             .replace(
                 '</head>',
