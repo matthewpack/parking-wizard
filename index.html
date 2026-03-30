@@ -1012,10 +1012,20 @@ function gpsLookupSilent() {
             applyLocation(lat, lon, 'GPS (±' + Math.round(pos.coords.accuracy) + 'm)');
             gpsGranted(lat, lon);
         },
-        () => {
-            // Silent GPS failed — restore big button (IP lookup already running in parallel)
-            const bigBtn = document.getElementById('gpsBigBtn');
-            if (bigBtn) bigBtn.style.display = '';
+        err => {
+            console.warn('[location] GPS silent failed:', err.code, err.message);
+            if (err.code === 1) {
+                // Permission denied — show button with informational state and clear stale flag
+                const bigBtn = document.getElementById('gpsBigBtn');
+                if (bigBtn) { bigBtn.innerHTML = '⚠ GPS blocked · check your browser settings'; bigBtn.style.display = ''; }
+                localStorage.removeItem('gps_granted');
+            } else if (!localStorage.getItem('gps_granted')) {
+                // Timeout / unavailable for first-time visitors — restore button so they can retry
+                const bigBtn = document.getElementById('gpsBigBtn');
+                if (bigBtn) bigBtn.style.display = '';
+            }
+            // If gps_granted is already set it means GPS worked before on this device.
+            // Keep the button hidden — IP location is already sorting correctly.
         },
         { enableHighAccuracy:true, maximumAge:300000, timeout:15000 }
     );
