@@ -245,14 +245,15 @@
         .flight-row:hover       { background: var(--purple-l); }
         .flight-row.selected    { background: var(--purple-l); }
         .flight-row.confirming  { background: var(--green-l); }
+        /* ── Return flight row keeps the old column layout ── */
         .fr-code  { font-size: .82rem; font-weight: 700; color: var(--muted); min-width: 3.5rem; width: 3.5rem; flex-shrink: 0; font-family: ui-monospace, monospace; line-height: 1.6; }
-        .fr-time-col { display: flex; flex-direction: column; width: 3.25rem; flex-shrink: 0; }
-        .fr-time  { font-size: 1.25rem; font-weight: 800; color: var(--purple); line-height: 1.1; }
-        .fr-time-sub { font-size: .75rem; color: var(--text); font-weight: 600; line-height: 1.4; white-space: nowrap; }
-        .fr-arrow { color: var(--muted); font-size: .875rem; flex-shrink: 0; }
-        .fr-dest  { flex: 1; min-width: 0; font-size: .875rem; color: var(--text); overflow: hidden; }
-        .fr-dest > div:first-child { font-weight: 700; color: #1a1a2e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .fr-dest-city { display: block; font-weight: 400; color: var(--muted); font-size: .78rem; line-height: 1.3; }
+        /* ── Outbound flight row — stacked layout (no truncation) ── */
+        .fr-main  { flex: 1; min-width: 0; }
+        .fr-top-line { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; margin-bottom: .2rem; }
+        .fr-time  { font-size: 1.25rem; font-weight: 800; color: var(--purple); line-height: 1.1; flex-shrink: 0; }
+        .fr-codes-inline { font-size: .78rem; font-weight: 700; color: var(--muted); font-family: ui-monospace, monospace; align-self: center; }
+        .fr-dest-line { font-size: .875rem; font-weight: 700; color: var(--text); line-height: 1.35; }
+        .fr-meta-line { font-size: .75rem; color: var(--muted); margin-top: .15rem; }
         .fr-note  { font-size: .78rem; color: var(--muted); margin-top: .15rem; }
         .flight-hint {
             font-size: .85rem; color: var(--green); font-weight: 600;
@@ -365,15 +366,17 @@
         .flt-date-btn.active { border-color: var(--purple); color: var(--purple); background: var(--purple-l); font-weight: 700; }
         .flt-date-btn:hover:not(.active) { background: var(--purple-l); }
         .flt-ctx { font-size: .875rem; color: var(--muted); margin-bottom: .625rem; }
-        /* ── Return flight rows — two-leg layout ── */
-        .fr-legs { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .18rem; }
-        .fr-leg  { display: flex; align-items: baseline; gap: .45rem; }
+        /* ── Return flight rows — stacked layout ── */
+        .fr-ret-top  { display: flex; align-items: baseline; gap: .4rem; flex-wrap: wrap; margin-bottom: .3rem; }
+        .fr-ret-meta { font-size: .75rem; color: var(--muted); }
+        .fr-leg      { display: flex; align-items: baseline; gap: .45rem; line-height: 1.5; }
         .fr-leg-icon { font-size: .8rem; color: var(--muted); width: .9rem; flex-shrink: 0; text-align: center; }
-        .fr-leg-time { font-weight: 800; color: var(--purple); font-size: 1.15rem; width: 3rem; flex-shrink: 0; }
-        .fr-leg-time.arr { color: var(--text); font-size: .95rem; font-weight: 700; }
-        .fr-leg-ap   { font-size: .78rem; font-weight: 700; color: var(--muted); letter-spacing: .03em; }
-        .fr-leg-date { font-size: .78rem; color: var(--text); white-space: nowrap; }
-        .fr-leg-term { font-size: .78rem; color: var(--muted); font-style: italic; white-space: nowrap; }
+        .fr-leg-time { font-weight: 800; color: var(--purple); font-size: 1.1rem; width: 3rem; flex-shrink: 0; }
+        .fr-leg-time.arr { color: var(--green-d); }
+        .fr-leg-ap   { font-size: .78rem; font-weight: 700; color: var(--text); letter-spacing: .03em; flex-shrink: 0; }
+        .fr-leg-date { font-size: .78rem; color: var(--muted); }
+        .fr-leg-date--stack { display: flex; flex-direction: column; }
+        .fr-leg-term { font-size: .72rem; color: var(--muted); }
         .fr-codeshare { font-size: .75rem; color: var(--muted); font-style: italic; }
         .fr-note { font-size: .75rem; color: var(--muted); font-style: italic; }
         .fr-tail {
@@ -411,15 +414,19 @@
         }
         .dc-nights { font-size: 1.625rem; font-weight: 800; color: var(--purple); }
         .dc-dates  { font-size: .875rem; color: var(--muted); margin-top: .15rem; }
-        .review-row { display: flex; align-items: center; padding: .875rem 0; border-bottom: 1px solid #f0f4f8; }
+        .review-row { display: flex; align-items: flex-start; padding: .875rem 0; border-bottom: 1px solid #f0f4f8; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .review-row:last-child { border-bottom: none; }
-        .rr-icon { font-size: 1rem; margin-right: .75rem; flex-shrink: 0; }
+        .review-row:hover .rr-lbl { color: var(--purple); }
+        .rr-icon { font-size: 1rem; margin-right: .75rem; flex-shrink: 0; margin-top: .15rem; }
         .rr-body { flex: 1; min-width: 0; overflow-wrap: break-word; word-break: break-word; }
-        .rr-lbl  { font-size: .82rem; color: var(--muted); }
+        .rr-lbl  { font-size: .82rem; color: var(--muted); display: flex; align-items: center; gap: .4rem; }
+        .rr-edit-link { font-size: .85rem; line-height: 1; }
         .rr-val  { font-size: .95rem; font-weight: 600; color: var(--text); margin-top: .1rem; overflow-wrap: break-word; }
         .rr-flight-note { font-size: .82rem; color: var(--muted); margin-top: .25rem; }
-        .rr-edit { background: none; border: none; color: var(--muted); cursor: pointer; padding: .375rem; border-radius: 5px; font-size: .95rem; transition: background .12s; flex-shrink: 0; }
-        .rr-edit:hover { background: #f0f4f8; color: var(--text); }
+        .confidence-box { background: var(--green-l); border: 1px solid #c6f6d5; border-radius: 9px; padding: .75rem 1rem; margin-top: .875rem; }
+        .confidence-box .cb-text { font-size: .82rem; color: var(--green-d); line-height: 1.5; display: block; }
+        .confidence-box .cb-text strong { font-weight: 700; color: var(--green-d); }
+        #step-8 .step-title { margin-bottom: 10px; }
 
         /* ── CTA ── */
         .srch-loading { display: none; text-align: center; padding: 1.25rem 0 .75rem; color: var(--muted); font-size: .9rem; }
@@ -567,11 +574,11 @@
                 <div class="spinner" role="status" aria-label="Finding deals"></div>
                 <p>Finding the best deals&hellip;</p>
             </div>
-            <button class="btn-success" id="searchBtn" onclick="submitSearch()">Show prices and availability &rarr;</button>
+            <button class="btn-success" id="searchBtn" onclick="submitSearch()">Show prices and availability</button>
         </div>
-        <p style="margin-top:.75rem;font-size:.875rem;color:var(--muted);text-align:center;line-height:1.6">
-            Remember, the earlier you book, the better the price.
-        </p>
+        <div class="confidence-box">
+            <span class="cb-text"><strong>Book with confidence.</strong> Choose <strong>Flextras</strong> at checkout for free cancellation — change your plans without changing your wallet.</span>
+        </div>
     </section>
 
 </main>
@@ -1601,7 +1608,7 @@ function _flightRowsHtml(subset, allFlights, type, words = []) {
     for (const { primary: f, allCodes, idx: rawIdx } of groups) {
         const isSel     = selFlight && allCodes.includes(selFlight.code);
         const termLabel = f.terminal ? (TERM_NAMES[f.terminal] || 'Terminal ' + f.terminal) : '';
-        const codesHtml = esc(allCodes.join(' / '));
+        const codesHtml = allCodes.map(esc).join(' <wbr>');
         const tailfinHtml = f.tailfin
             ? `<img class="fr-tail" src="${esc(f.tailfin)}" alt="${esc(f.airline)}" loading="lazy" onerror="this.style.display='none'">` : '';
         const cid = type === 'outbound' ? 'outboundFlightList' : 'returnFlightList';
@@ -1616,12 +1623,15 @@ function _flightRowsHtml(subset, allFlights, type, words = []) {
             const arrCode     = state.airport?.code || '';
             const depDateStr  = f.departureDate ? fmtShort(parseISO(f.departureDate)) : '';
             const arrDateStr  = f.arrivalDate   ? fmtShort(parseISO(f.arrivalDate))   : '';
+            const retMetaParts = [codesHtml, f.airline].filter(Boolean);
             html += `<div class="flight-row${isSel ? ' selected' : ''}" role="option" aria-selected="${isSel}" tabindex="0"
                          data-idx="${rawIdx}"
                          onclick="pickFlight('${type}',${rawIdx})"
                          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickFlight('${type}',${rawIdx});}">
-                        <span class="fr-code">${esc(f.code)}</span>
-                        <span class="fr-legs">
+                        <div class="fr-main">
+                            <div class="fr-ret-top">
+                                <span class="fr-ret-meta">${retMetaParts.join(' · ')}</span>
+                            </div>
                             <div class="fr-leg">
                                 <span class="fr-leg-icon">↗</span>
                                 <span class="fr-leg-time">${pad2(f.depHour)}:${pad2(f.depMinute)}</span>
@@ -1632,33 +1642,27 @@ function _flightRowsHtml(subset, allFlights, type, words = []) {
                                 <span class="fr-leg-icon">↙</span>
                                 <span class="fr-leg-time arr">${pad2(f.hour)}:${pad2(f.minute)}</span>
                                 <span class="fr-leg-ap">${esc(arrCode)}</span>
-                                <span class="fr-leg-date">${esc(arrDateStr)}</span>
+                                <span class="fr-leg-date fr-leg-date--stack">${esc(arrDateStr)}${termLabel ? `<span class="fr-leg-term">${esc(termLabel)}</span>` : ''}</span>
                             </div>
-                            <div class="fr-note">${[esc(f.airline), ...(termLabel ? [esc(termLabel)] : []), ...( allCodes.filter(c => c !== f.code).length ? [allCodes.filter(c => c !== f.code).map(esc).join(', ')] : [])].join(' · ')}</div>
-                        </span>
+                        </div>
                         ${tailfinHtml}${removeBtnHtml}
                     </div>`;
         } else {
-            const noteCountry  = f.destCountry || '';
-            const noteParts    = noteCountry ? esc(noteCountry) : '';
-            const stackedCodes = allCodes.map(esc).join('<br>');
-            const dateSubLabel = f.departureDate ? fmtShort(parseISO(f.departureDate)) : '';
+            const destParts = [f.dest, ...(f.destCity && f.destCity !== f.dest ? [f.destCity] : []), f.destCountry].filter(Boolean);
+            const fullDest  = destParts.map(esc).join(' · ');
+            const metaParts = [termLabel, f.airline].filter(Boolean).map(esc);
             html += `<div class="flight-row${isSel ? ' selected' : ''}" role="option" aria-selected="${isSel}" tabindex="0"
                          data-idx="${rawIdx}"
                          onclick="pickFlight('${type}',${rawIdx})"
                          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pickFlight('${type}',${rawIdx});}">
-                        <span class="fr-code">${stackedCodes}</span>
-                        <span class="fr-time-col">
-                            <span class="fr-time">${pad2(f.hour)}:${pad2(f.minute)}</span>
-                            ${dateSubLabel ? `<span class="fr-time-sub">${esc(dateSubLabel)}</span>` : ''}
-                            ${termLabel    ? `<span class="fr-time-sub">${esc(termLabel)}</span>`    : ''}
-                        </span>
-                        <span class="fr-arrow" aria-hidden="true">→</span>
-                        <span class="fr-dest">
-                            <div>${_highlightWords(f.dest, words)}</div>
-                            ${f.destCity && f.destCity !== f.dest ? `<span class="fr-dest-city">${esc(f.destCity)}</span>` : ''}
-                            ${noteParts ? `<div class="fr-note">${noteParts}</div>` : ''}
-                        </span>
+                        <div class="fr-main">
+                            <div class="fr-top-line">
+                                <span class="fr-time">${pad2(f.hour)}:${pad2(f.minute)}</span>
+                                <span class="fr-codes-inline">${codesHtml}</span>
+                            </div>
+                            <div class="fr-dest-line">${_highlightWords(destParts[0], words)}${destParts.slice(1).map(p => ' · ' + esc(p)).join('')}</div>
+                            ${metaParts.length ? `<div class="fr-meta-line">${metaParts.join(' · ')}</div>` : ''}
+                        </div>
                         ${tailfinHtml}${removeBtnHtml}
                     </div>`;
         }
@@ -1879,13 +1883,13 @@ let _prefetchedUrl  = null;
 let _prefetchPromise = null;
 
 function rrRow(icon, label, value, step, extra) {
-    return `<div class="review-row">
+    return `<div class="review-row" onclick="goToStep(${step})" role="button" tabindex="0" aria-label="${esc(label)}: ${esc(value)}. Tap to edit."
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();goToStep(${step});}">
         <span class="rr-icon" aria-hidden="true">${icon}</span>
         <div class="rr-body">
-            <div class="rr-lbl">${esc(label)}</div>
+            <div class="rr-lbl">${esc(label)}<span class="rr-edit-link" aria-hidden="true">&#9998;&#65039;</span></div>
             <div class="rr-val">${esc(value)}${extra||''}</div>
         </div>
-        <button class="rr-edit" onclick="goToStep(${step})" aria-label="Edit ${esc(label)}">&#9998;&#65039;</button>
     </div>`;
 }
 
