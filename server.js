@@ -127,11 +127,19 @@ function indexHandler(req, res) {
         // Serving at root — no injection needed, stream directly
         res.sendFile(path.join(__dirname, 'index.html'));
     } else {
-        // Inject window._basePath before </head> so _API constant picks it up
-        const html = getIndexHtml().replace(
-            '</head>',
-            `<script>window._basePath='${MOUNT_PATH}'</script></head>`
-        );
+        // Inject <base href> immediately after <meta charset> so the browser
+        // resolves ALL relative asset URLs (logo, fonts, favicons, images)
+        // relative to the mount path — not the domain root.
+        // Also inject window._basePath so the client JS API calls use the right prefix.
+        const html = getIndexHtml()
+            .replace(
+                '<meta charset="UTF-8">',
+                `<meta charset="UTF-8"><base href="${MOUNT_PATH}/">`
+            )
+            .replace(
+                '</head>',
+                `<script>window._basePath='${MOUNT_PATH}'</script></head>`
+            );
         res.send(html);
     }
 }
