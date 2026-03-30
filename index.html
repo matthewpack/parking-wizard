@@ -659,7 +659,7 @@ if (_flightCache.has(key)) return _flightCache.get(key);
 const params = new URLSearchParams({ location: airportCode, date: dateStr });
 if (destination) params.set('destination', destination);
 if (query) params.set('query', query);
-const p = fetch('/api/flights?' + params)
+const p = fetch(_API + '/api/flights?' + params)
 .then(r => r.ok ? r.json() : Promise.reject(r.status))
 .then(raw => normaliseFlights(raw, dateStr, mode))
 .then(flights => { _flightDataCache.set(key, flights); return flights; })
@@ -736,6 +736,9 @@ EDI:{ al:['EZY','FR','BA','LG'], dests:['Amsterdam','Alicante','Barcelona','Dubl
 GLA:{ al:['EZY','FR','BA'], dests:['London','Dublin','Amsterdam','Alicante','Faro','Tenerife','Lanzarote','Málaga'] },
 DEFAULT:{ al:['EZY','BA','FR','TOM'], dests:['Amsterdam','Alicante','Faro','Barcelona','Málaga','Tenerife','Dublin','Paris','Rome'] },
 };
+// ─── API base path (set by server when mounted under a sub-path) ───────────────
+const _API = (window._basePath || '');
+
 // ─── State ─────────────────────────────────────────────────────────────────────
 const state = { airport:null, dropoffDate:null, dropoffTime:null, dropoffFlight:null, returnDate:null, returnTime:null, returnFlight:null };
 let currentStep = 1;
@@ -1842,7 +1845,7 @@ function buildReview() {
     // Prefetch silently in background — button stays visible throughout
     _prefetchedUrl = null;
     _prefetchPromise = _buildSearchPayload().then(payload =>
-        fetch('/api/parking/search', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
+        fetch(_API + '/api/parking/search', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
             .then(r => r.json())
             .then(({ redirectUrl }) => { _prefetchedUrl = redirectUrl; return redirectUrl; })
             .catch(() => null)

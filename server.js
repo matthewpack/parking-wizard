@@ -1,35 +1,32 @@
 const express    = require('express');
 const compression = require('compression');
 const path       = require('path');
+const fs         = require('fs');
 
 const app  = express();
 const PORT = process.env.PORT || 8080;
+
+// Optional sub-path mount, e.g. '/parking-wizard' for path-based proxy routing.
+// Leave unset (or set to '') when running at root.
+const MOUNT_PATH = (process.env.MOUNT_PATH || '').replace(/\/$/, '');
 
 // Gzip/Brotli all responses
 app.use(compression());
 app.use(express.json());
 
 // ─── Flight API proxy ─────────────────────────────────────────────────────────
-// Thin proxy to the Holiday Extras dock-yard flight search endpoint.
-// Caches results in memory for 4 hours — flights update ~weekly so this is safe.
-const flightCache = new Map(); // "LGW:2026-04-18" → { data, expires }
+const flightCache = new Map();
 const CACHE_TTL   = 4 * 60 * 60 * 1000;
 
-app.get('/api/flights', async (req, res) => {
+async function flightsHandler(req, res) {
     const { location, date, destination, query = '' } = req.query;
 
-    // location + date are always required
     if (!location || !date)                   return res.status(400).json({ error: 'location and date required' });
     if (!/^[A-Z]{3}$/.test(location))         return res.status(400).json({ error: 'invalid location' });
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date))   return res.status(400).json({ error: 'invalid date' });
     if (destination && !/^[A-Z]{3}$/.test(destination)) return res.status(400).json({ error: 'invalid destination' });
 
-    // Two modes:
-    //   outbound: location=LGW  + departDate=DATE  (flights OUT of parking airport)
-    //   return:   location=ORIG + arrivalDate=DATE  + destination=LGW  (flights IN to parking airport)
     const isReturn = !!destination;
-
-    // Cache key includes query so filtered results don't poison the full-list cache
     const key    = location + ':' + date + (isReturn ? ':in:' + destination : ':out') + (query ? ':q:' + query : '');
     const cached = flightCache.get(key);
     if (cached && cached.expires > Date.now()) return res.json(cached.data);
@@ -49,17 +46,13 @@ app.get('/api/flights', async (req, res) => {
         console.error('[flights]', e.message);
         res.status(502).json({ error: 'fetch failed' });
     }
-});
+}
 
 // ─── Parking search ───────────────────────────────────────────────────────────
-// Accepts our clean semantic payload, builds the HX URL, logs the search, returns redirectUrl.
-// Decouples the frontend from HX's internal URL structure — update this one place when HX changes.
-
-const searchLog = [];          // rolling in-memory log — no PII
+const searchLog = [];
 const LOG_MAX   = 200;
 
 function buildHxUrl({ parkingAirport, parkingDropoffDate, parkingDropoffTime, parkingReturnDate, parkingReturnTime, outboundFlight }) {
-    // HX search uses a hash-based route: /static/?selectProduct=cp&reloadKey=KEY#/categories?...
     const hashParams = new URLSearchParams({
         agent:           'WEB1',
         depart:          parkingAirport,
@@ -75,7 +68,7 @@ function buildHxUrl({ parkingAirport, parkingDropoffDate, parkingDropoffTime, pa
     return `https://www.holidayextras.com/static/?selectProduct=cp&reloadKey=d1b72610#/categories?${hashParams}`;
 }
 
-app.post('/api/parking/search', (req, res) => {
+function parkingSearchHandler(req, res) {
     const { parkingAirport, parkingDropoffDate, parkingDropoffTime, parkingReturnDate, parkingReturnTime, outboundFlight, returnFlight } = req.body || {};
 
     if (!parkingAirport || !parkingDropoffDate || !parkingDropoffTime || !parkingReturnDate || !parkingReturnTime)
@@ -83,7 +76,6 @@ app.post('/api/parking/search', (req, res) => {
 
     const redirectUrl = buildHxUrl(req.body);
 
-    // Calculate nights for the log
     const msPerDay = 86400000;
     const nights   = Math.round((new Date(parkingReturnDate) - new Date(parkingDropoffDate)) / msPerDay);
 
@@ -113,23 +105,71 @@ app.post('/api/parking/search', (req, res) => {
     console.log('='.repeat(60) + '\n');
 
     res.json({ redirectUrl });
-});
+}
 
-app.get('/api/log', (req, res) => {
+function logHandler(req, res) {
     res.json(searchLog);
-});
+}
 
-// Long-lived cache for immutable assets (images, fuse.js, favicons)
-app.use(express.static(path.join(__dirname), {
-    maxAge: '30d',
-    etag:   true,
-    lastModified: true,
-    setHeaders(res, filePath) {
-        // index.html must always revalidate so deploys take effect immediately
-        if (filePath.endsWith('index.html')) {
-            res.setHeader('Cache-Control', 'no-cache');
-        }
-    },
-}));
+// ─── index.html with injected base path ───────────────────────────────────────
+// Reads index.html once and injects window._basePath so the client JS
+// knows the correct API prefix when mounted under a sub-path.
+let _indexHtml = null;
+function getIndexHtml() {
+    if (!_indexHtml) _indexHtml = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+    return _indexHtml;
+}
 
-app.listen(PORT, () => console.log('Parking wizard listening on port', PORT));
+function indexHandler(req, res) {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    if (!MOUNT_PATH) {
+        // Serving at root — no injection needed, stream directly
+        res.sendFile(path.join(__dirname, 'index.html'));
+    } else {
+        // Inject window._basePath before </head> so _API constant picks it up
+        const html = getIndexHtml().replace(
+            '</head>',
+            `<script>window._basePath='${MOUNT_PATH}'</script></head>`
+        );
+        res.send(html);
+    }
+}
+
+// ─── Router — all app routes in one place ────────────────────────────────────
+function mountRoutes(router, basePath) {
+    router.get('/api/flights',          flightsHandler);
+    router.post('/api/parking/search',  parkingSearchHandler);
+    router.get('/api/log',              logHandler);
+
+    // Static assets — images, fonts, fuse.js, favicons
+    // index.html is served explicitly above so we can inject the base path;
+    // the static middleware handles everything else.
+    router.use(express.static(path.join(__dirname), {
+        maxAge: '30d',
+        etag:   true,
+        lastModified: true,
+        index: false,   // don't auto-serve index.html — our explicit route does that
+        setHeaders(res, filePath) {
+            if (filePath.endsWith('index.html')) res.setHeader('Cache-Control', 'no-cache');
+        },
+    }));
+
+    // SPA catch-all — serve index.html for any unmatched GET (handles deep links / refreshes)
+    router.get('*', indexHandler);
+}
+
+// Always mount at root (direct Heroku URL access)
+const rootRouter = express.Router();
+mountRoutes(rootRouter);
+app.use('/', rootRouter);
+
+// Also mount at MOUNT_PATH if set (path-based proxy, e.g. /parking-wizard)
+if (MOUNT_PATH) {
+    const subRouter = express.Router();
+    mountRoutes(subRouter);
+    app.use(MOUNT_PATH, subRouter);
+    console.log(`[mount] Also serving at ${MOUNT_PATH}`);
+}
+
+app.listen(PORT, () => console.log(`Parking wizard listening on port ${PORT}${MOUNT_PATH ? ' (also at ' + MOUNT_PATH + ')' : ''}`));
