@@ -123,23 +123,18 @@ function getIndexHtml() {
 function indexHandler(req, res) {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    if (!MOUNT_PATH) {
-        // Serving at root — no injection needed, stream directly
+    // req.baseUrl is the prefix the router was mounted at:
+    //   '' when reached via the root router (direct Heroku URL)
+    //   '/parking-wizard' when reached via the sub-path router (HX proxy)
+    // Only inject base href and _basePath when actually serving from a sub-path —
+    // injecting on the root URL breaks GPS and other functionality unnecessarily.
+    const mountedAt = req.baseUrl || '';
+    if (!mountedAt) {
         res.sendFile(path.join(__dirname, 'index.html'));
     } else {
-        // Inject <base href> immediately after <meta charset> so the browser
-        // resolves ALL relative asset URLs (logo, fonts, favicons, images)
-        // relative to the mount path — not the domain root.
-        // Also inject window._basePath so the client JS API calls use the right prefix.
         const html = getIndexHtml()
-            .replace(
-                '<head>',
-                `<head><base href="${MOUNT_PATH}/">`
-            )
-            .replace(
-                '</head>',
-                `<script>window._basePath='${MOUNT_PATH}'</script></head>`
-            );
+            .replace('<head>', `<head><base href="${mountedAt}/">`)
+            .replace('</head>', `<script>window._basePath='${mountedAt}'</script></head>`);
         res.send(html);
     }
 }
