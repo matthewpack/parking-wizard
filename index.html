@@ -131,15 +131,12 @@
         .location-btn:hover:not(:disabled) { background: var(--purple-d); }
         .location-btn:disabled { opacity: .65; cursor: not-allowed; }
 
-        /* ── Nearest row (label + small GPS link, shown after GPS granted) ── */
-        .nearest-row {
-            display: flex; align-items: baseline;
-            justify-content: space-between; margin-bottom: .625rem;
-        }
-        .nearest-row .sec-lbl { margin-bottom: 0; }
+        /* ── Nearest row (label + small GPS link below it) ── */
+        .nearest-row { margin-bottom: .625rem; }
+        .nearest-row .sec-lbl { margin-bottom: .2rem; }
         .gps-link {
-            font-size: .82rem; font-weight: 600; color: #276749;
-            white-space: nowrap; text-decoration: none;
+            display: block; font-size: .78rem; font-weight: 600; color: #276749;
+            text-decoration: none;
             border: none; background: none; font-family: inherit; padding: 0; cursor: default;
         }
 
@@ -179,6 +176,7 @@
         .a-tile {
             border: 2px solid var(--border); border-radius: 10px; padding: .875rem .5rem;
             cursor: pointer; text-align: center;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
             transition: border-color .12s, background .12s, transform .15s;
             user-select: none; -webkit-tap-highlight-color: transparent;
         }
