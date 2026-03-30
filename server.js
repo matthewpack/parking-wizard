@@ -167,17 +167,19 @@ function mountRoutes(router, basePath) {
     router.get('*', indexHandler);
 }
 
-// Always mount at root (direct Heroku URL access)
-const rootRouter = express.Router();
-mountRoutes(rootRouter);
-app.use('/', rootRouter);
-
-// Also mount at MOUNT_PATH if set (path-based proxy, e.g. /parking-wizard)
+// Mount MOUNT_PATH router FIRST so it wins over the root catch-all.
+// If registered after app.use('/', rootRouter), the root catch-all would
+// swallow /parking-wizard/logo.jpg before the sub-path router could handle it.
 if (MOUNT_PATH) {
     const subRouter = express.Router();
     mountRoutes(subRouter);
     app.use(MOUNT_PATH, subRouter);
-    console.log(`[mount] Also serving at ${MOUNT_PATH}`);
+    console.log(`[mount] Serving at ${MOUNT_PATH}`);
 }
+
+// Root router last — handles direct Heroku URL access
+const rootRouter = express.Router();
+mountRoutes(rootRouter);
+app.use('/', rootRouter);
 
 app.listen(PORT, () => console.log(`Parking wizard listening on port ${PORT}${MOUNT_PATH ? ' (also at ' + MOUNT_PATH + ')' : ''}`));
