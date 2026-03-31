@@ -300,10 +300,29 @@
         }
         .flt-search-clear:hover { color: var(--text); }
         mark.flt-hl { background: #fdd506; color: inherit; border-radius: 2px; padding: 0 1px; font-style: normal; }
-        .flight-loading {
-            padding: 1.25rem; text-align: center; color: var(--muted);
-            font-size: .9rem;
+        /* ── Shimmer skeleton loader ── */
+        @keyframes shimmer {
+            0%   { background-position: -400px 0; }
+            100% { background-position:  400px 0; }
         }
+        .sk-block {
+            border-radius: 4px;
+            background: linear-gradient(90deg, #ede9f5 25%, #f5f3fa 50%, #ede9f5 75%);
+            background-size: 800px 100%;
+            animation: shimmer 1.4s infinite linear;
+        }
+        .flight-row.sk-row { cursor: default; pointer-events: none; }
+        .flight-row.sk-row:hover { background: transparent; }
+        .sk-row .fr-top-line { display: flex; align-items: center; gap: .5rem; margin-bottom: .35rem; }
+        .sk-row .fr-time-sk  { width: 3rem;   height: .9rem; }
+        .sk-row .fr-codes-sk { width: 4.5rem; height: .65rem; }
+        .sk-row .fr-dest-sk  { width: 70%;    height: .8rem;  margin-bottom: .3rem; }
+        .sk-row .fr-meta-sk  { width: 50%;    height: .65rem; }
+        .sk-row .fr-tail-sk  { width: 44px;   height: 44px;   border-radius: 6px; flex-shrink: 0; }
+        .flight-row.sk-row:nth-child(1) .sk-block { animation-delay: 0s; }
+        .flight-row.sk-row:nth-child(2) .sk-block { animation-delay: .15s; }
+        .flight-row.sk-row:nth-child(3) .sk-block { animation-delay: .3s; }
+        .flight-row.sk-row:nth-child(4) .sk-block { animation-delay: .45s; }
         /* Section headers inside the single flight-list box */
         .flt-sec-hdr {
             padding: .3rem 1rem; font-size: .75rem; font-weight: 700; letter-spacing: .05em;
@@ -1219,7 +1238,7 @@ function switchOutboundDate(dateStr) {
 
 function _loadOutboundFlights(date) {
     const container  = document.getElementById('outboundFlightList');
-    container.innerHTML = '<div class="flight-loading">Loading flights…</div>';
+    container.innerHTML = `<div class="flight-list" aria-hidden="true">${_flightSkeletonRows()}</div>`;
     document.getElementById('outboundSearchWrap').classList.remove('visible');
     const savedQuery = document.getElementById('outboundFlightSearch')?.value || '';
     fetchFlights(state.airport.code, date)
@@ -1336,7 +1355,7 @@ function switchReturnDate(dateStr) {
 
 function _loadReturnFlights(outDest, date) {
     const container = document.getElementById('returnFlightList');
-    container.innerHTML = '<div class="flight-loading">Loading flights…</div>';
+    container.innerHTML = `<div class="flight-list" aria-hidden="true">${_flightSkeletonRows()}</div>`;
     document.getElementById('returnSearchWrap')?.classList.remove('visible');
     // `date` = the arrival/landing date at the parking airport (what the user tapped).
     // Overnight long-haul flights depart the day before they land, so we must query
@@ -1409,6 +1428,21 @@ function onReturnTime(h) {
 }
 
 // ─── Flight picker ─────────────────────────────────────────────────────────────
+function _flightSkeletonRows() {
+    const row = `<div class="flight-row sk-row">
+        <div class="fr-main">
+            <div class="fr-top-line">
+                <div class="fr-time-sk sk-block"></div>
+                <div class="fr-codes-sk sk-block"></div>
+            </div>
+            <div class="fr-dest-sk sk-block"></div>
+            <div class="fr-meta-sk sk-block"></div>
+        </div>
+        <div class="fr-tail-sk sk-block"></div>
+    </div>`;
+    return row.repeat(4);
+}
+
 function _searchInputId(containerId) {
     return containerId === 'outboundFlightList' ? 'outboundFlightSearch' : 'returnFlightSearch';
 }
