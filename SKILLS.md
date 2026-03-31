@@ -118,6 +118,7 @@ Content-Type: application/json
 
 ```json
 {
+  "agentCode":         "WEB1",
   "parkingAirport":    "LGW",
   "parkingDropoffDate": "2026-04-18",
   "parkingDropoffTime": "08:00",
@@ -140,6 +141,7 @@ Content-Type: application/json
 
 | Field | Required | Format | Description |
 |---|---|---|---|
+| `agentCode` | No | string | HX agent code (e.g. `WEB1`). Controls product visibility and pricing on the results page. Defaults to `WEB1` if omitted. |
 | `parkingAirport` | **Yes** | 3-letter IATA | Airport where the car is parked |
 | `parkingDropoffDate` | **Yes** | `YYYY-MM-DD` | Date the car is dropped off |
 | `parkingDropoffTime` | **Yes** | `HH:MM` (24h) | Time the car is dropped off. Valid edge values: `00:01` (just after midnight) and `23:59` (just before midnight) |
@@ -160,6 +162,7 @@ Content-Type: application/json
 curl -X POST http://localhost:8080/api/parking/search \
   -H "Content-Type: application/json" \
   -d '{
+    "agentCode":         "WEB1",
     "parkingAirport":    "LGW",
     "parkingDropoffDate": "2026-04-18",
     "parkingDropoffTime": "08:00",
@@ -218,6 +221,7 @@ curl http://localhost:8080/api/log
 [
   {
     "ts":                       "2026-04-18T07:30:00.000Z",
+    "agentCode":                 "WEB1",
     "parkingAirport":            "LGW",
     "nights":                    7,
     "parkingDropoffDate":        "2026-04-18",

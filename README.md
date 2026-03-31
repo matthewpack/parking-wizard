@@ -7,13 +7,15 @@ A streamlined, mobile-first booking wizard for Holiday Extras airport parking. G
 ## Features
 
 - **8-step guided wizard** — airport → drop-off date → outbound flight → drop-off time → return date → return flight → return time → review & submit
-- **GPS + IP location detection** — IP lookup fires immediately on load; GPS runs in parallel and upgrades the result silently if permission is already granted. No delay waiting for GPS to time out.
+- **GPS + IP location detection** — IP lookup fires immediately on load; GPS runs in parallel and upgrades the result silently if permission is already granted. On Mac/desktop without a GPS chip, automatically retries with low-accuracy (WiFi/OS network location). No delay waiting for GPS to time out.
 - **Flight search** — live flight data with full-text search (Fuse.js), codeshare deduplication, city name display, and recent/favourite flights
 - **Smart time defaults** — pre-selects recommended drop-off/return times based on flight schedule, including correct midnight-wrap logic for overnight long-haul returns
 - **Return flight date logic** — date tabs represent the day the flight *lands* at the parking airport. Both the selected date and the day before are fetched from the API and merged, then filtered to only show arrivals on the chosen date — so Bangkok→London overnight flights appear under the correct landing date
 - **Edge-case time picker** — 25 options: `00:01`, `01:00`–`23:00`, `23:59`; overnight collection times wrap correctly past midnight
 - **Recents & favourites** — airports and flights persist in localStorage for quick repeat bookings
 - **Seamless HX handoff** — submits to Holiday Extras with all parameters serialised into the correct URL format
+- **Shimmer skeleton loading** — while flights load, animated placeholder rows mirror the real flight row layout so the UI never shows a blank container
+- **HX agent code** — reads the `agent` cookie set by holidayextras.com and passes it through the search payload to control product visibility and pricing on the results page
 - **Server-side flight caching** — 4-hour in-memory cache on the proxy layer to reduce upstream API calls
 - **JS/CSS minification** — `html-minifier-terser` runs as a `heroku-postbuild` step, saving ~5 KiB on every deploy
 - **iPhone safe-area support** — `viewport-fit=cover` + `env(safe-area-inset-top)` for PWA/home-screen installs
@@ -57,6 +59,7 @@ The server starts on port `8080` by default. Open `http://localhost:8080` in you
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `8080` | HTTP port the server listens on |
+| `MOUNT_PATH` | _(empty)_ | Optional sub-path prefix, e.g. `/parking-wizard`. Used when the app is served behind a path-based reverse proxy (e.g. Cloudflare on holidayextras.com). When set, injects `<base href>` and `window._basePath` into the HTML so all assets resolve correctly. Leave unset for direct Heroku URL access. |
 
 ---
 
@@ -68,6 +71,8 @@ parking-wizard/
 ├── server.js               # Express server — API proxy + parking search
 ├── package.json
 ├── Procfile                # Heroku web dyno declaration
+├── LOGIC.md                # Logic engine reference — dates, times, flight logic
+├── SKILLS.md               # AI skills reference — API guide for agent-driven bookings
 ├── fuse.min.js             # Fuse.js fuzzy search library (vendored)
 ├── nunito-latin.woff2      # Self-hosted font
 ├── logo.png / logo.jpg     # Brand assets
@@ -132,6 +137,7 @@ Accepts a semantic search payload, builds the Holiday Extras redirect URL, logs 
 
 ```json
 {
+  "agentCode":         "WEB1",
   "parkingAirport":    "LGW",
   "parkingDropoffDate": "2026-04-18",
   "parkingDropoffTime": "08:00",
@@ -152,6 +158,7 @@ Accepts a semantic search payload, builds the Holiday Extras redirect URL, logs 
 
 | Field | Required | Description |
 |---|---|---|
+| `agentCode` | No | HX agent code read from the `agent` cookie (e.g. `WEB1`). Controls which products are shown and pricing applied on the HX results page. Defaults to `WEB1` if absent. |
 | `parkingAirport` | Yes | 3-letter IATA code of the parking airport |
 | `parkingDropoffDate` | Yes | Date the car is dropped off (`YYYY-MM-DD`) |
 | `parkingDropoffTime` | Yes | Time the car is dropped off (`HH:MM`, 24-hour; may be `00:01` or `23:59`) |
@@ -192,6 +199,7 @@ Returns the rolling in-memory log of the last 200 parking searches. No PII is st
 [
   {
     "ts":                       "2026-04-18T07:30:00.000Z",
+    "agentCode":                 "WEB1",
     "parkingAirport":            "LGW",
     "nights":                    7,
     "parkingDropoffDate":        "2026-04-18",
@@ -308,9 +316,16 @@ Static assets (images, fonts, fuse.js) are served with a 30-day `Cache-Control` 
 
 A `heroku-postbuild` npm script runs `html-minifier-terser` to minify the JS and CSS inside `index.html` before the dyno starts. Flags used: `--minify-js '{"compress":false,"mangle":false}'` — compression is disabled to avoid code transformations that could affect GPS/geolocation callbacks; mangling is disabled to preserve function names used in inline `onclick` handlers.
 
+**Live deployments:**
+
+| App | Region | URL | Used by |
+|---|---|---|---|
+| `parking-wizard-hx-eu` | EU (Dublin) | `https://parking-wizard-hx-eu-a0df79b1e7b3.herokuapp.com/` | Production — path-proxied via Cloudflare at `holidayextras.com/parking-wizard/` |
+| `parking-wizard-hx` | US | `https://parking-wizard-hx-e29e0d876ce4.herokuapp.com/` | Backup / staging |
+
 **Tail live logs:**
 ```bash
-heroku logs --tail --app parking-wizard-hx
+heroku logs --tail --app parking-wizard-hx-eu
 ```
 
 ---
@@ -331,6 +346,13 @@ heroku logs --tail --app parking-wizard-hx
 | `holidayextras.com/dock-yard/flight/search` | Live flight data API |
 | `ipapi.co/json/` | IP-based geolocation (fires immediately on load) |
 | HX Tracker v6 (CloudFront CDN) | Analytics / event tracking |
+
+---
+
+## Further Reading
+
+- **[LOGIC.md](LOGIC.md)** — Deep-dive into all the non-obvious date, time and flight logic: the airport-hotel pre-night scenario, why the return flight step fetches two days from the API, the overnight time-wrap calculation, sentinel values, and more. Essential reading before touching any date or time code.
+- **[SKILLS.md](SKILLS.md)** — API reference for AI agents: how to search for outbound and return flights, submit a parking search, and chain the skills into a complete end-to-end booking.
 
 ---
 
