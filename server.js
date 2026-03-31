@@ -52,9 +52,9 @@ async function flightsHandler(req, res) {
 const searchLog = [];
 const LOG_MAX   = 200;
 
-function buildHxUrl({ parkingAirport, parkingDropoffDate, parkingDropoffTime, parkingReturnDate, parkingReturnTime, outboundFlight }) {
+function buildHxUrl({ parkingAirport, parkingDropoffDate, parkingDropoffTime, parkingReturnDate, parkingReturnTime, outboundFlight, agentCode }) {
     const hashParams = new URLSearchParams({
-        agent:           'WEB1',
+        agent:           agentCode || 'WEB1',
         depart:          parkingAirport,
         out:             parkingDropoffDate,
         park_from:       parkingDropoffTime,
@@ -69,7 +69,7 @@ function buildHxUrl({ parkingAirport, parkingDropoffDate, parkingDropoffTime, pa
 }
 
 function parkingSearchHandler(req, res) {
-    const { parkingAirport, parkingDropoffDate, parkingDropoffTime, parkingReturnDate, parkingReturnTime, outboundFlight, returnFlight } = req.body || {};
+    const { parkingAirport, parkingDropoffDate, parkingDropoffTime, parkingReturnDate, parkingReturnTime, outboundFlight, returnFlight, agentCode } = req.body || {};
 
     if (!parkingAirport || !parkingDropoffDate || !parkingDropoffTime || !parkingReturnDate || !parkingReturnTime)
         return res.status(400).json({ error: 'missing required parking fields' });
@@ -81,6 +81,7 @@ function parkingSearchHandler(req, res) {
 
     const entry = {
         ts:                       new Date().toISOString(),
+        agentCode:                agentCode || 'WEB1',
         parkingAirport,
         nights,
         parkingDropoffDate,

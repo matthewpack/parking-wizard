@@ -1928,9 +1928,17 @@ function rrRow(icon, label, value, step, extra) {
 }
 
 // ─── Submit ────────────────────────────────────────────────────────────────────
+function _getAgentCode() {
+    // Read the HX `agent` cookie (e.g. WEB1) — controls product visibility and pricing.
+    // There can be duplicate entries at different paths; take the first match and uppercase.
+    const c = document.cookie.split(';').map(s => s.trim()).find(s => /^agent=/i.test(s));
+    return c ? c.split('=').slice(1).join('=').toUpperCase() : '';
+}
+
 function _buildSearchPayload() {
     const df = state.dropoffFlight, rf = state.returnFlight;
     return Promise.resolve({
+        agentCode:          _getAgentCode() || 'WEB1',
         parkingAirport:     state.airport.code,
         parkingDropoffDate: fmtISO(state.dropoffDate),
         parkingDropoffTime: fmtTime(state.dropoffTime),
