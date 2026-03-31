@@ -349,6 +349,20 @@ heroku logs --tail --app parking-wizard-hx-eu
 
 ---
 
+## Future Ideas
+
+### Return from a different airport
+
+**The scenario:** Customer flies Gatwick → Naples but returns Rome → Gatwick. Step 6 today hardcodes Naples as the return search origin because it reads `state.dropoffFlight.destAirport`. There's no way to change it.
+
+**The insight:** You don't need a world airport database. You already know the destination (the parking airport) and the date. All the return flights coming back to Gatwick on that day are already in the API response — they just happen to depart from Naples. If the user could tap "Naples" and see *all* origins serving Gatwick that day, they could just pick Rome. The flight list is the airport list.
+
+**The UI problem:** You'd need a hybrid pattern — something like the airport tile picker to choose the return origin, immediately followed by the flight list for that origin — all within what is currently a single step. That's two interaction patterns stacked inside one step and doesn't fit the current linear flow cleanly. The right solution probably involves either a dedicated sub-step or rethinking step 6 into a two-phase interaction (pick origin → pick flight). Not a small UI change.
+
+**Decision:** Don't build yet. Worth revisiting when the core flow has had real user testing and there's evidence that multi-leg itineraries are a common enough need to justify the UI complexity.
+
+---
+
 ## Further Reading
 
 - **[LOGIC.md](LOGIC.md)** — Deep-dive into all the non-obvious date, time and flight logic: the airport-hotel pre-night scenario, why the return flight step fetches two days from the API, the overnight time-wrap calculation, sentinel values, and more. Essential reading before touching any date or time code.
