@@ -351,15 +351,28 @@ heroku logs --tail --app parking-wizard-hx-eu
 
 ## Future Ideas
 
-### Return from a different airport
+### Return from a different airport (open jaw)
 
-**The scenario:** Customer flies Gatwick → Naples but returns Rome → Gatwick. Step 6 today hardcodes Naples as the return search origin because it reads `state.dropoffFlight.destAirport`. There's no way to change it.
+**The scenario:** Customer flies Gatwick → Alicante but returns Malaga → Gatwick. Step 6 currently hardcodes the outbound destination (Alicante) as the return search origin.
 
-**The insight:** You don't need a world airport database. You already know the destination (the parking airport) and the date. All the return flights coming back to Gatwick on that day are already in the API response — they just happen to depart from Naples. If the user could tap "Naples" and see *all* origins serving Gatwick that day, they could just pick Rome. The flight list is the airport list.
+**What's shipped (v157):** A "Returning from a different airport?" link now appears on step 6, below the route context line. Clicking it skips the return flight step (same as Skip), so the customer can continue to pick their car collection time manually. Simple, no dead ends.
 
-**The UI problem:** You'd need a hybrid pattern — something like the airport tile picker to choose the return origin, immediately followed by the flight list for that origin — all within what is currently a single step. That's two interaction patterns stacked inside one step and doesn't fit the current linear flow cleanly. The right solution probably involves either a dedicated sub-step or rethinking step 6 into a two-phase interaction (pick origin → pick flight). Not a small UI change.
+**The next step — all-inbound endpoint:** The HX flight search API supports fetching every flight arriving at an airport on a given date without specifying an origin:
 
-**Decision:** Don't build yet. Worth revisiting when the core flow has had real user testing and there's evidence that multi-leg itineraries are a common enough need to justify the UI complexity.
+```
+GET /dock-yard/flight/search?query=&location=&arrivalDate=YYYY-MM-DD&destination=LGW
+```
+
+Leaving `location` empty returns all inbound flights to `destination` on that date. This is the missing piece for a proper open jaw flight picker — add a `/api/flights/inbound?destination=LGW&date=YYYY-MM-DD` server endpoint that calls this, and the full inbound list becomes available to the client.
+
+**The geolocation filter:** A raw inbound list for a hub like Gatwick can be 300–400 flights from all over the world. Filter by proximity of the origin airport to the customer's outbound destination:
+
+- The UK airport list already stores lat/lon. Build a modest overseas airport coordinate dataset (~500 airports covers 99% of charter/scheduled routes from UK airports).
+- Calculate distance between `state.dropoffFlight.destAirport` and each inbound flight's origin airport.
+- Show only flights departing within ~500 km. Someone flying Gatwick → Alicante isn't returning from Los Angeles.
+- Provide an "show all airports" fallback for edge cases.
+
+**UI:** Render the filtered inbound list using the existing return flight two-leg row format (dep time + origin code → arr time + parking airport). The existing search/filter box handles narrowing it further.
 
 ---
 
