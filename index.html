@@ -362,6 +362,14 @@
         .btn-skip:hover { background: var(--purple); color: #fff; }
         .btn-skip:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
 
+        /* ── Open jaw link ── */
+        .oj-link {
+            display: inline; background: none; border: none; padding: 0;
+            font: inherit; font-size: .8rem; color: var(--purple);
+            text-decoration: underline; cursor: pointer; margin-top: .3rem;
+        }
+        .oj-link:hover { color: var(--purple-d, #4a0090); }
+
         /* ── Bordered wrapper containing date strip + search + rows ── */
         .flt-return-wrap {
             border: 1.5px solid var(--border); border-radius: 10px;
@@ -1319,7 +1327,8 @@ function setupReturnFlight() {
 
     // Context header: origin city → parking airport
     const ctx = document.getElementById('returnFlightCtx');
-    ctx.innerHTML = esc(state.dropoffFlight?.dest || outDest) + ' &rarr; ' + esc(state.airport?.full || state.airport?.name || state.airport?.code || '');
+    ctx.innerHTML = esc(state.dropoffFlight?.dest || outDest) + ' &rarr; ' + esc(state.airport?.full || state.airport?.name || state.airport?.code || '')
+        + '<br><button class="oj-link" onclick="skipFlight(\'return\')">Returning from a different airport?</button>';
 
     // Date strip represents ARRIVAL date at the parking airport.
     // Restore to the flight's arrival date if user already picked one,
@@ -1378,6 +1387,7 @@ function _loadReturnFlights(outDest, date) {
         renderFlightList('returnFlightList', merged, 'return');
     });
 }
+
 
 // ─── Step 7: Return time ──────────────────────────────────────────────────────
 function _returnSuggestedHour() {
@@ -1632,7 +1642,7 @@ function _groupCodeshares(subset, allFlights) {
 
 // Returns HTML string for a subset of flight rows. Indexes into allFlights for stable data-idx.
 function _flightRowsHtml(subset, allFlights, type, words = []) {
-    const selFlight = type === 'outbound' ? state.dropoffFlight : state.returnFlight;
+    const selFlight = type === 'outbound' ? state.dropoffFlight : state.returnFlight; // open-jaw also uses returnFlight
     const TERM_NAMES = { N:'North Terminal', S:'South Terminal', T:'Tunnel Terminal' };
     let html = '';
 
@@ -1814,7 +1824,7 @@ function clearFlightSearch(containerId, type) {
 }
 
 function pickFlight(type, idx) {
-    const cid      = type === 'outbound' ? 'outboundFlightList' : 'returnFlightList';
+    const cid = type === 'outbound' ? 'outboundFlightList' : 'returnFlightList';
     const hintId   = type === 'outbound' ? 'outboundHint'       : 'returnHint';
     const container= document.getElementById(cid);
     const f        = (container._flights || [])[idx];
