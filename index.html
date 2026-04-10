@@ -269,6 +269,14 @@
         .time-tip strong { color: var(--text); font-weight: 700; }
         .time-tip a { color: var(--purple); font-weight: 600; text-decoration: none; }
         .time-tip a:hover { text-decoration: underline; }
+        .next-day-notice {
+            margin-bottom: 1rem; padding: .75rem 1rem;
+            background: #fffbeb; border: 1.5px solid #fde68a;
+            border-radius: 10px; font-size: .82rem; color: #78350f; line-height: 1.6;
+            display: none;
+        }
+        .next-day-notice.visible { display: block; }
+        .next-day-notice strong { color: #92400e; font-weight: 700; }
         /* ── Flight search bar ── */
         .flt-search-wrap {
             display: none; align-items: center; margin-bottom: .75rem;
@@ -539,7 +547,8 @@
     <section class="step" id="step-4">
         <h2 class="step-title">Parking from time</h2>
         <div class="flight-hint" id="outboundHint"></div>
-        <p class="step-q">What time will you drop your car off?</p>
+        <div class="next-day-notice" id="nextDayNotice"></div>
+        <p class="step-q" id="dropoffTimeQ">What time will you drop your car off?</p>
         <div class="time-grid" id="dropoffTimeGrid" role="listbox" aria-label="Drop-off time"></div>
         <div class="time-tip">
             <strong>Not sure of the exact time?</strong> Don't worry — most car parks allow you to arrive up to
@@ -1260,6 +1269,17 @@ function _loadOutboundFlights(date) {
 }
 
 // ─── Step 4: Drop-off time ────────────────────────────────────────────────────
+function _dropoffFlightIsNextDay() {
+    if (!state.dropoffFlight?.departureDate || !state.dropoffDate) return false;
+    return state.dropoffFlight.departureDate > fmtISO(state.dropoffDate);
+}
+
+function _suggestedDropoffHour() {
+    if (!state.dropoffFlight) return state.dropoffTime;
+    if (_dropoffFlightIsNextDay()) return 16;
+    return Math.max(-1, state.dropoffFlight.hour - 3);
+}
+
 function setupDropoffTime() {
     const hint = document.getElementById('outboundHint');
     if (state.dropoffFlight) {
@@ -1273,12 +1293,23 @@ function setupDropoffTime() {
     } else {
         hint.classList.remove('visible');
     }
-    renderTimePicker('dropoffTimeGrid', state.dropoffTime, state.dropoffFlight ? Math.max(-1, state.dropoffFlight.hour - 3) : state.dropoffTime, onDropoffTime);
+    const q = document.getElementById('dropoffTimeQ');
+    const notice = document.getElementById('nextDayNotice');
+    if (_dropoffFlightIsNextDay() && state.dropoffDate) {
+        const flightDate = state.dropoffFlight?.departureDate ? fmtShort(parseISO(state.dropoffFlight.departureDate)) : 'the next day';
+        notice.innerHTML = 'We can see your flight departs on <strong>' + flightDate + '</strong> — the day after your parking starts. No problem at all! Whether you\'re staying overnight nearby or have other plans, just let us know what time you\'ll be dropping your car off.';
+        notice.classList.add('visible');
+        q.innerHTML = 'What time will you drop your car off on <strong>' + fmtShort(state.dropoffDate) + '</strong>?';
+    } else {
+        notice.classList.remove('visible');
+        q.textContent = 'What time will you drop your car off?';
+    }
+    renderTimePicker('dropoffTimeGrid', state.dropoffTime, _suggestedDropoffHour(), onDropoffTime);
 }
 
 function onDropoffTime(h) {
     state.dropoffTime = h;
-    renderTimePicker('dropoffTimeGrid', h, state.dropoffFlight ? Math.max(-1, state.dropoffFlight.hour - 3) : null, onDropoffTime);
+    renderTimePicker('dropoffTimeGrid', h, _dropoffFlightIsNextDay() ? 16 : (state.dropoffFlight ? Math.max(-1, state.dropoffFlight.hour - 3) : null), onDropoffTime);
     track('parking-wizard-stage4-dropoff-time', fmtTime(h));
     goToStep(5);
 }
