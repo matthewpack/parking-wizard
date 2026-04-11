@@ -1971,16 +1971,43 @@ function rrRow(icon, label, value, step, extra) {
 
 // ─── Submit ────────────────────────────────────────────────────────────────────
 function _getAgentCode() {
-    // Read the HX `agent` cookie (e.g. WEB1) — controls product visibility and pricing.
-    // There can be duplicate entries at different paths; take the first match and uppercase.
-    const c = document.cookie.split(';').map(s => s.trim()).find(s => /^agent=/i.test(s));
-    return c ? c.split('=').slice(1).join('=').toUpperCase() : '';
+    // Resolve agent code with priority: URL param → sessionStorage cache → cookies → default.
+    // Read cookies up front so we know whether to set one if the code arrives via URL param.
+    const cookies = Object.fromEntries(
+        document.cookie.split(';').map(s => { const [k,...v]=s.trim().split('='); return [k.toLowerCase(), v.join('=')]; })
+    );
+    const cookieVal = cookies['agent'] || cookies['agentcode'] || cookies['hx_agent'] || '';
+
+    // 1. URL parameter — highest priority, covers direct links with ?agent=WY992
+    const urlAgent = new URLSearchParams(window.location.search).get('agent');
+    if (urlAgent) {
+        const code = urlAgent.trim().toUpperCase();
+        try { sessionStorage.setItem('hx_pw_agent', code); } catch(e){}
+        // Persist to cookie for future requests if no agent cookie is already present
+        if (!cookieVal) {
+            document.cookie = `agent=${encodeURIComponent(code)};path=/;max-age=${60 * 60 * 24 * 365}`;
+        }
+        return code;
+    }
+
+    // 2. sessionStorage — persists the resolved code across wizard steps within the session
+    try { const cached = sessionStorage.getItem('hx_pw_agent'); if (cached) return cached; } catch(e){}
+
+    // 3. Cookies — try all known HX agent cookie names
+    if (cookieVal) {
+        const code = cookieVal.trim().toUpperCase();
+        try { sessionStorage.setItem('hx_pw_agent', code); } catch(e){}
+        return code;
+    }
+
+    // 4. Default — ensures the back end always receives a valid agent code
+    return 'WEB1';
 }
 
 function _buildSearchPayload() {
     const df = state.dropoffFlight, rf = state.returnFlight;
     return Promise.resolve({
-        agentCode:          _getAgentCode() || 'WEB1',
+        agentCode:          _getAgentCode(),
         parkingAirport:     state.airport.code,
         parkingDropoffDate: fmtISO(state.dropoffDate),
         parkingDropoffTime: fmtTime(state.dropoffTime),
