@@ -69,7 +69,7 @@ function buildHxUrl({ parkingAirport, parkingDropoffDate, parkingDropoffTime, pa
 }
 
 function parkingSearchHandler(req, res) {
-    const { parkingAirport, parkingDropoffDate, parkingDropoffTime, parkingReturnDate, parkingReturnTime, outboundFlight, returnFlight, agentCode } = req.body || {};
+    const { parkingAirport, parkingDropoffDate, parkingDropoffTime, parkingReturnDate, parkingReturnTime, outboundFlight, returnFlight, agentCode, visitorId } = req.body || {};
 
     if (!parkingAirport || !parkingDropoffDate || !parkingDropoffTime || !parkingReturnDate || !parkingReturnTime)
         return res.status(400).json({ error: 'missing required parking fields' });
@@ -82,16 +82,38 @@ function parkingSearchHandler(req, res) {
     const entry = {
         ts:                       new Date().toISOString(),
         agentCode:                agentCode || 'WEB1',
+        visitorId:                visitorId || null,
         parkingAirport,
         nights,
         parkingDropoffDate,
         parkingDropoffTime,
         parkingReturnDate,
         parkingReturnTime,
-        outboundFlight:            outboundFlight?.code             || null,
+
+        outboundFlight:            outboundFlight?.code              || null,
+        outboundReference:         outboundFlight?.reference         || '',
+        outboundDepartureAirport:  outboundFlight?.departureAirport  || '',
+        outboundDepartureDate:     outboundFlight?.departureDate     || '',
+        outboundDepartureTime:     outboundFlight?.departureTime     || '',
         outboundDepartureTerminal: outboundFlight?.departureTerminal || '',
-        returnFlight:              returnFlight?.code               || null,
+        outboundArrivalAirport:    outboundFlight?.arrivalAirport    || '',
+        outboundArrivalDate:       outboundFlight?.arrivalDate       || '',
+        outboundArrivalTime:       outboundFlight?.arrivalTime       || '',
+        outboundDest:              outboundFlight?.dest              || outboundFlight?.arrivalAirport || '',
+
+        returnFlight:              returnFlight?.code                || null,
+        returnReference:           returnFlight?.reference           || '',
+        returnDepartureAirport:    returnFlight?.departureAirport    || '',
+        returnDepartureDate:       returnFlight?.departureDate       || '',
+        returnDepartureTime:       returnFlight?.departureTime       || '',
+        returnDepartureTerminal:   returnFlight?.departureTerminal   || '',
+        returnArrivalAirport:      returnFlight?.arrivalAirport      || '',
+        returnArrivalDate:         returnFlight?.arrivalDate         || '',
+        returnArrivalTime:         returnFlight?.arrivalTime         || '',
         returnArrivalTerminal:     returnFlight?.arrivalTerminal     || '',
+        returnOrigin:              returnFlight?.departureAirport    || '',
+
+        redirectUrl,
     };
     searchLog.push(entry);
     if (searchLog.length > LOG_MAX) searchLog.shift();
@@ -108,8 +130,135 @@ function parkingSearchHandler(req, res) {
     res.json({ redirectUrl });
 }
 
+// ─── Admin log (auth-gated via ?key=ADMIN_KEY) ───────────────────────────────
+const ADMIN_KEY = process.env.ADMIN_KEY;
+
+function checkAuth(req, res) {
+    if (ADMIN_KEY && req.query.key !== ADMIN_KEY) {
+        res.status(401).type('text/plain').send('Unauthorised — add ?key=YOUR_KEY to the URL');
+        return false;
+    }
+    return true;
+}
+
 function logHandler(req, res) {
-    res.json(searchLog);
+    if (!checkAuth(req, res)) return;
+    const rows = [...searchLog].reverse();
+    res.json({ total: rows.length, rows });
+}
+
+function logCsvHandler(req, res) {
+    if (!checkAuth(req, res)) return;
+    const cols = ['ts','agentCode','visitorId','parkingAirport','nights',
+                  'parkingDropoffDate','parkingDropoffTime','parkingReturnDate','parkingReturnTime',
+                  'outboundFlight','outboundReference',
+                  'outboundDepartureAirport','outboundDepartureDate','outboundDepartureTime','outboundDepartureTerminal',
+                  'outboundArrivalAirport','outboundArrivalDate','outboundArrivalTime','outboundDest',
+                  'returnFlight','returnReference',
+                  'returnDepartureAirport','returnDepartureDate','returnDepartureTime','returnDepartureTerminal',
+                  'returnArrivalAirport','returnArrivalDate','returnArrivalTime','returnArrivalTerminal','returnOrigin',
+                  'redirectUrl'];
+    const esc = v => v == null ? '' : `"${String(v).replace(/"/g,'""')}"`;
+    const rows = [...searchLog].reverse();
+    const csv  = [cols.join(','), ...rows.map(r => cols.map(c => esc(r[c])).join(','))].join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="parking-searches-${new Date().toISOString().slice(0,10)}.csv"`);
+    res.send(csv);
+}
+
+function adminHandler(req, res) {
+    if (!checkAuth(req, res)) return;
+    const keyParam = ADMIN_KEY ? `?key=${encodeURIComponent(ADMIN_KEY)}` : '';
+    const mount    = req.baseUrl || '';
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Parking Wizard — Search Log</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;background:#f8f8f8;color:#222}
+header{background:#552e92;color:#fff;padding:.875rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem}
+header h1{font-size:1rem;font-weight:700}
+header a{color:#e2d9f3;font-size:.8rem;text-decoration:none;border:1px solid #7c5cbf;border-radius:6px;padding:.3rem .75rem}
+header a:hover{background:#3d2070}
+.bar{padding:.625rem 1.25rem;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
+.bar input{border:1px solid #cbd5e0;border-radius:6px;padding:.35rem .65rem;font-size:13px;width:280px}
+.stat{font-size:.8rem;color:#718096}
+.stat strong{color:#222}
+table{width:100%;border-collapse:collapse;background:#fff}
+th{background:#f1f0f8;color:#552e92;font-weight:700;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;padding:.5rem .75rem;text-align:left;position:sticky;top:0;white-space:nowrap}
+td{padding:.45rem .75rem;border-bottom:1px solid #f0f0f0;vertical-align:top;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+tr:hover td{background:#faf8ff}
+.wrap{overflow-x:auto;max-height:calc(100vh - 100px)}
+.apt{display:inline-block;background:#ede7f6;color:#512da8;font-weight:700;font-size:.72rem;padding:2px 6px;border-radius:3px}
+.flt{font-family:ui-monospace,Menlo,monospace;font-size:.78rem}
+.nil{color:#999}
+.sent a{color:#2e7d32;text-decoration:none;font-weight:600}
+.sent a:hover{text-decoration:underline}
+</style></head><body>
+<header>
+  <h1>🅿️ Parking Wizard — Search Log (last ${searchLog.length ? searchLog.length : 0} in memory)</h1>
+  <nav style="display:flex;gap:.5rem;align-items:center">
+    <a href="${mount}/api/log.csv${keyParam}" download>⬇ CSV</a>
+    <a href="${mount}/api/log${keyParam}">JSON</a>
+  </nav>
+</header>
+<div class="bar">
+  <input type="search" id="q" placeholder="Filter by agent, airport, flight, visitor ID…" oninput="filter()">
+  <span class="stat" id="stat"></span>
+</div>
+<div class="wrap"><table id="tbl">
+<thead><tr>
+  <th>Time</th><th>Agent</th><th>Visitor ID</th><th>Airport</th><th>Nights</th>
+  <th>Drop-off</th><th>Return</th>
+  <th>Outbound flight</th><th>Outbound depart</th><th>Outbound arrive</th>
+  <th>Return flight</th><th>Return depart</th><th>Return arrive</th>
+  <th>Sent to</th>
+</tr></thead>
+<tbody id="tbody"></tbody>
+</table></div>
+<script>
+let rows=[];
+async function load(){
+  const r=await fetch('${mount}/api/log${keyParam}');
+  const d=await r.json();
+  rows=d.rows||[];
+  document.getElementById('stat').innerHTML='<strong>'+rows.length+'</strong> searches';
+  render(rows);
+}
+function esc(s){return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+function fmt(ts){if(!ts)return'';const d=new Date(ts);return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});}
+function fmtDate(d){if(!d)return'';return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'});}
+function nilOr(v){return v?esc(v):'<span class="nil">—</span>';}
+function copyVid(btn){navigator.clipboard.writeText(btn.dataset.vid);btn.textContent='✓';setTimeout(()=>btn.textContent='⧉',1200);}
+function vidCell(v){if(!v)return'<span class="nil">—</span>';const short=v.slice(0,12)+(v.length>12?'…':'');return'<span title="'+esc(v)+'">'+esc(short)+'</span> <button data-vid="'+esc(v)+'" onclick="copyVid(this)" title="Copy visitor ID" style="background:none;border:none;cursor:pointer;font-size:0.85em;opacity:0.6;padding:0">⧉</button>';}
+function flt(code,loc,term,ref){if(!code)return'<span class="nil">—</span>';const t=term?' T'+esc(term):'';const l=loc?' '+esc(loc):'';const title=ref?' title="ref: '+esc(ref)+'"':'';return'<span class="flt"'+title+'>'+esc(code)+'</span>'+l+t;}
+function dt(date,time,airport){if(!date&&!time)return'<span class="nil">—</span>';const a=airport?' '+esc(airport):'';return fmtDate(date)+' '+esc(time||'')+a;}
+function sent(url){if(!url)return'<span class="nil">—</span>';return'<span class="sent"><a href="'+esc(url)+'" target="_blank">open ↗</a></span>';}
+function render(data){
+  document.getElementById('tbody').innerHTML=data.map(r=>'<tr>'+
+    '<td title="'+esc(r.ts)+'">'+fmt(r.ts)+'</td>'+
+    '<td>'+esc(r.agentCode)+'</td>'+
+    '<td>'+vidCell(r.visitorId)+'</td>'+
+    '<td><span class="apt">'+esc(r.parkingAirport)+'</span></td>'+
+    '<td>'+esc(r.nights)+'</td>'+
+    '<td>'+fmtDate(r.parkingDropoffDate)+' '+esc(r.parkingDropoffTime||'')+'</td>'+
+    '<td>'+fmtDate(r.parkingReturnDate)+' '+esc(r.parkingReturnTime||'')+'</td>'+
+    '<td>'+flt(r.outboundFlight,r.outboundDest,r.outboundDepartureTerminal,r.outboundReference)+'</td>'+
+    '<td>'+dt(r.outboundDepartureDate,r.outboundDepartureTime,r.outboundDepartureAirport)+'</td>'+
+    '<td>'+dt(r.outboundArrivalDate,r.outboundArrivalTime,r.outboundArrivalAirport)+'</td>'+
+    '<td>'+flt(r.returnFlight,r.returnOrigin,r.returnArrivalTerminal,r.returnReference)+'</td>'+
+    '<td>'+dt(r.returnDepartureDate,r.returnDepartureTime,r.returnDepartureAirport)+'</td>'+
+    '<td>'+dt(r.returnArrivalDate,r.returnArrivalTime,r.returnArrivalAirport)+'</td>'+
+    '<td>'+sent(r.redirectUrl)+'</td>'+
+  '</tr>').join('');
+}
+function filter(){
+  const q=document.getElementById('q').value.toLowerCase();
+  render(q?rows.filter(r=>JSON.stringify(r).toLowerCase().includes(q)):rows);
+}
+load();
+</script></body></html>`);
 }
 
 // ─── index.html with injected base path ───────────────────────────────────────
@@ -145,6 +294,8 @@ function mountRoutes(router, basePath) {
     router.get('/api/flights',          flightsHandler);
     router.post('/api/parking/search',  parkingSearchHandler);
     router.get('/api/log',              logHandler);
+    router.get('/api/log.csv',          logCsvHandler);
+    router.get('/admin',                adminHandler);
 
     // Static assets — images, fonts, fuse.js, favicons
     // index.html is served explicitly above so we can inject the base path;

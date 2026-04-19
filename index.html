@@ -614,7 +614,7 @@
             <button class="btn-success" id="searchBtn" onclick="submitSearch()">Show prices and availability</button>
         </div>
         <div class="confidence-box">
-            <span class="cb-text"><strong>Book with confidence.</strong> Choose <strong>Flextras</strong> at checkout for free cancellation — change your plans without changing your wallet.</span>
+            <span class="cb-text"><strong>Book early, pay less.</strong> Our data shows prices go up 95% of the time as the stay date gets closer. Secure today's rate now — <strong>Flextras</strong> is included, just tap more info to understand the terms.</span>
         </div>
     </section>
 
@@ -1204,7 +1204,7 @@ function renderCalendar(containerId, minDate, maxDays, selectedDate, onPickFn, m
 
 // ─── Step 2: Drop-off date ────────────────────────────────────────────────────
 function setupDropoffDate() {
-    renderCalendar('dropoffCalBody', today(), 365, state.dropoffDate, 'pickDropoffDate');
+    renderCalendar('dropoffCalBody', today(), 710, state.dropoffDate, 'pickDropoffDate');
 }
 
 function pickDropoffDate(dateStr) {
@@ -1214,9 +1214,10 @@ function pickDropoffDate(dateStr) {
         const d = parseISO(dateStr);
         state.dropoffDate   = d;
         state.dropoffFlight = null;
+        state.dropoffTime   = null;
         if (state.returnDate && state.returnDate <= d) { state.returnDate = null; state.returnTime = null; state.returnFlight = null; }
         track('parking-wizard-stage2-dropoff-date', dateStr);
-        renderCalendar('dropoffCalBody', today(), 365, d, 'pickDropoffDate');
+        renderCalendar('dropoffCalBody', today(), 710, d, 'pickDropoffDate');
         goToStep(3);
     }, 280);
 }
@@ -1244,7 +1245,7 @@ function _renderOutboundDateStrip() {
         const d  = new Date(base.getFullYear(), base.getMonth(), base.getDate() + offset);
         const ds = fmtISO(d);
         const active = fmtISO(_outboundViewDate) === ds;
-        return `<button class="flt-date-btn${active ? ' active' : ''}" onclick="switchOutboundDate('${ds}')">${fmtShort(d)}</button>`;
+        return `<button class="flt-date-btn${active ? ' active' : ''}" onclick="switchOutboundDate('${ds}')">${fmtShort(d)} ${d.getFullYear()}</button>`;
     }).join('');
 }
 
@@ -1869,6 +1870,7 @@ function pickFlight(type, idx) {
 
     if (type === 'outbound') {
         state.dropoffFlight = { ...f, _direction: 'outbound' };
+        state.dropoffTime   = null;
         track('parking-wizard-stage3-outbound-flight', f.code + ':' + f.dest);
         Favourites.pushFlight(state.airport.code, state.dropoffFlight);
         setTimeout(() => goToStep(4), 200);   // brief confirming flash then advance
@@ -1883,6 +1885,7 @@ function pickFlight(type, idx) {
 function skipFlight(type) {
     if (type === 'outbound') {
         state.dropoffFlight = null;
+        state.dropoffTime   = null;
         track('parking-wizard-stage3-outbound-flight-skip', '');
         goToStep(4);
     } else {
@@ -1927,14 +1930,14 @@ function buildReview() {
 
     const dropNote = df ? (() => {
         const term = df.terminal ? fmtTerminal(df.terminal) + ', ' : '';
-        const dateStr = df.departureDate ? ' on ' + fmtShort(parseISO(df.departureDate)) : '';
+        const dateStr = df.departureDate ? ' on ' + fmtShort(parseISO(df.departureDate)) + ' ' + parseISO(df.departureDate).getFullYear() : '';
         return rn(`To catch your ${esc(df.airline || df.code)} flight ${esc(df.code)} to ${esc(df.dest)}, departing ${term}at ${pad2(df.depHour)}:${pad2(df.depMinute)}${dateStr}`);
     })() : '';
 
     const retNote = rf ? (() => {
         const term = rf.terminal ? ', arriving ' + fmtTerminal(rf.terminal) : '';
         const landTime = rf.minute === 0 ? pad2(rf.hour) + ' o\'clock' : pad2(rf.hour) + ':' + pad2(rf.minute);
-        const dateStr = (rf.arrivalDate || rf.departureDate) ? ' on ' + fmtShort(parseISO(rf.arrivalDate || rf.departureDate)) : '';
+        const dateStr = (rf.arrivalDate || rf.departureDate) ? ' on ' + fmtShort(parseISO(rf.arrivalDate || rf.departureDate)) + ' ' + parseISO(rf.arrivalDate || rf.departureDate).getFullYear() : '';
         return rn(`Your ${esc(rf.airline || rf.code)} flight ${esc(rf.code)} from ${esc(rf.origin || rf.originAirport)}${term}, lands at ${landTime}${dateStr}`);
     })() : '';
 
@@ -2004,10 +2007,22 @@ function _getAgentCode() {
     return 'WEB1';
 }
 
+function _getVisitorId() {
+    try {
+        if (typeof tracker !== 'undefined') {
+            const v = tracker.httpHeaders?.()?.['visitor-id'] || tracker.ids?.()?.orion?.visitorId;
+            if (v) return v;
+        }
+        const m = document.cookie.match(/(?:^|; )owts=([^;]+)/);
+        return m ? m[1] : null;
+    } catch (e) { return null; }
+}
+
 function _buildSearchPayload() {
     const df = state.dropoffFlight, rf = state.returnFlight;
     return Promise.resolve({
         agentCode:          _getAgentCode(),
+        visitorId:          _getVisitorId(),
         parkingAirport:     state.airport.code,
         parkingDropoffDate: fmtISO(state.dropoffDate),
         parkingDropoffTime: fmtTime(state.dropoffTime),
