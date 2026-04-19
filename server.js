@@ -53,6 +53,8 @@ async function initDb() {
     `);
     // Migrate existing tables created before auth_token was added.
     await db.query(`ALTER TABLE parking_search_log ADD COLUMN IF NOT EXISTS auth_token TEXT`);
+    // Index the ts column: every /admin query filters on `ts > NOW() - 24h`.
+    await db.query(`CREATE INDEX IF NOT EXISTS parking_search_log_ts_idx ON parking_search_log (ts DESC)`);
     console.log('[db] parking_search_log table ready');
 }
 
