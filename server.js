@@ -20,6 +20,7 @@ async function initDb() {
             ts                           TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
             agent_code                   VARCHAR(20),
             visitor_id                   VARCHAR(100),
+            auth_token                   TEXT,
             parking_airport              VARCHAR(3),
             nights                       SMALLINT,
             parking_dropoff_date         DATE,
@@ -50,6 +51,8 @@ async function initDb() {
             redirect_url                 TEXT
         )
     `);
+    // Migrate existing tables created before auth_token was added.
+    await db.query(`ALTER TABLE parking_search_log ADD COLUMN IF NOT EXISTS auth_token TEXT`);
     console.log('[db] parking_search_log table ready');
 }
 
@@ -58,7 +61,7 @@ initDb().catch(e => console.error('[db] init error:', e.message));
 // Alias all snake_case columns to camelCase so admin/JSON/CSV stay consistent
 // whether we're reading from Postgres or the in-memory fallback.
 const SELECT_COLS = `
-    ts, agent_code AS "agentCode", visitor_id AS "visitorId",
+    ts, agent_code AS "agentCode", visitor_id AS "visitorId", auth_token AS "authToken",
     parking_airport AS "parkingAirport", nights,
     parking_dropoff_date AS "parkingDropoffDate", parking_dropoff_time AS "parkingDropoffTime",
     parking_return_date  AS "parkingReturnDate",  parking_return_time  AS "parkingReturnTime",
@@ -91,7 +94,7 @@ async function logSearch(entry) {
     try {
         await db.query(`
             INSERT INTO parking_search_log (
-                agent_code, visitor_id,
+                agent_code, visitor_id, auth_token,
                 parking_airport, nights,
                 parking_dropoff_date, parking_dropoff_time,
                 parking_return_date, parking_return_time,
@@ -104,9 +107,9 @@ async function logSearch(entry) {
                 return_arrival_airport,   return_arrival_date,   return_arrival_time,   return_arrival_terminal,
                 return_origin,
                 redirect_url
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
         `, [
-            entry.agentCode, entry.visitorId,
+            entry.agentCode, entry.visitorId, entry.authToken || null,
             entry.parkingAirport, entry.nights,
             entry.parkingDropoffDate, entry.parkingDropoffTime,
             entry.parkingReturnDate, entry.parkingReturnTime,
@@ -188,7 +191,7 @@ function buildHxUrl({ parkingAirport, parkingDropoffDate, parkingDropoffTime, pa
 }
 
 function parkingSearchHandler(req, res) {
-    const { parkingAirport, parkingDropoffDate, parkingDropoffTime, parkingReturnDate, parkingReturnTime, outboundFlight, returnFlight, agentCode, visitorId } = req.body || {};
+    const { parkingAirport, parkingDropoffDate, parkingDropoffTime, parkingReturnDate, parkingReturnTime, outboundFlight, returnFlight, agentCode, visitorId, authToken } = req.body || {};
 
     if (!parkingAirport || !parkingDropoffDate || !parkingDropoffTime || !parkingReturnDate || !parkingReturnTime)
         return res.status(400).json({ error: 'missing required parking fields' });
@@ -202,6 +205,7 @@ function parkingSearchHandler(req, res) {
         ts:                       new Date().toISOString(),
         agentCode:                agentCode || 'WEB1',
         visitorId:                visitorId || null,
+        authToken:                authToken || null,
         parkingAirport,
         nights,
         parkingDropoffDate,
@@ -292,7 +296,7 @@ async function logHandler(req, res) {
 
 async function logCsvHandler(req, res) {
     if (!checkAuth(req, res)) return;
-    const cols = ['ts','agentCode','visitorId','parkingAirport','nights',
+    const cols = ['ts','agentCode','visitorId','authToken','parkingAirport','nights',
                   'parkingDropoffDate','parkingDropoffTime','parkingReturnDate','parkingReturnTime',
                   'outboundFlight','outboundReference',
                   'outboundDepartureAirport','outboundDepartureDate','outboundDepartureTime','outboundDepartureTerminal',
@@ -356,7 +360,7 @@ tr:hover td{background:#faf8ff}
 </div>
 <div class="wrap"><table id="tbl">
 <thead><tr>
-  <th>Time</th><th>Agent</th><th>Visitor ID</th><th>Airport</th><th>Nights</th>
+  <th>Time</th><th>Agent</th><th>Visitor ID</th><th>Auth token</th><th>Airport</th><th>Nights</th>
   <th>Drop-off</th><th>Return</th>
   <th>Outbound flight</th><th>Outbound depart</th><th>Outbound arrive</th>
   <th>Return flight</th><th>Return depart</th><th>Return arrive</th>
@@ -379,6 +383,7 @@ function fmtDate(d){if(!d)return'';return new Date(d).toLocaleDateString('en-GB'
 function nilOr(v){return v?esc(v):'<span class="nil">—</span>';}
 function copyVid(btn){navigator.clipboard.writeText(btn.dataset.vid);btn.textContent='✓';setTimeout(()=>btn.textContent='⧉',1200);}
 function vidCell(v){if(!v)return'<span class="nil">—</span>';const short=v.slice(0,12)+(v.length>12?'…':'');return'<span title="'+esc(v)+'">'+esc(short)+'</span> <button data-vid="'+esc(v)+'" onclick="copyVid(this)" title="Copy visitor ID" style="background:none;border:none;cursor:pointer;font-size:0.85em;opacity:0.6;padding:0">⧉</button>';}
+function tokCell(v){if(!v)return'<span class="nil">—</span>';const short=v.slice(0,10)+(v.length>10?'…':'');return'<span title="'+esc(v)+'">'+esc(short)+'</span> <button data-vid="'+esc(v)+'" onclick="copyVid(this)" title="Copy auth token" style="background:none;border:none;cursor:pointer;font-size:0.85em;opacity:0.6;padding:0">⧉</button>';}
 function flt(code,loc,term,ref){if(!code)return'<span class="nil">—</span>';const t=term?' T'+esc(term):'';const l=loc?' '+esc(loc):'';const title=ref?' title="ref: '+esc(ref)+'"':'';return'<span class="flt"'+title+'>'+esc(code)+'</span>'+l+t;}
 function dt(date,time,airport){if(!date&&!time)return'<span class="nil">—</span>';const a=airport?' '+esc(airport):'';return fmtDate(date)+' '+esc(time||'')+a;}
 function sent(url){if(!url)return'<span class="nil">—</span>';return'<span class="sent"><a href="'+esc(url)+'" target="_blank">open ↗</a></span>';}
@@ -387,6 +392,7 @@ function render(data){
     '<td title="'+esc(r.ts)+'">'+fmt(r.ts)+'</td>'+
     '<td>'+esc(r.agentCode)+'</td>'+
     '<td>'+vidCell(r.visitorId)+'</td>'+
+    '<td>'+tokCell(r.authToken)+'</td>'+
     '<td><span class="apt">'+esc(r.parkingAirport)+'</span></td>'+
     '<td>'+esc(r.nights)+'</td>'+
     '<td>'+fmtDate(r.parkingDropoffDate)+' '+esc(r.parkingDropoffTime||'')+'</td>'+

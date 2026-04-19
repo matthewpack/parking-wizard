@@ -2018,11 +2018,19 @@ function _getVisitorId() {
     } catch (e) { return null; }
 }
 
+function _getAuthToken() {
+    try {
+        const m = document.cookie.match(/(?:^|; )auth_token=([^;]+)/);
+        return m ? decodeURIComponent(m[1]) : null;
+    } catch (e) { return null; }
+}
+
 function _buildSearchPayload() {
     const df = state.dropoffFlight, rf = state.returnFlight;
     return Promise.resolve({
         agentCode:          _getAgentCode(),
         visitorId:          _getVisitorId(),
+        authToken:          _getAuthToken(),
         parkingAirport:     state.airport.code,
         parkingDropoffDate: fmtISO(state.dropoffDate),
         parkingDropoffTime: fmtTime(state.dropoffTime),
