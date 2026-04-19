@@ -190,11 +190,23 @@ function buildHxUrl({ parkingAirport, parkingDropoffDate, parkingDropoffTime, pa
     return `https://www.holidayextras.com/static/?selectProduct=cp&reloadKey=d1b72610#/categories?${hashParams}`;
 }
 
+// HolidayExtras sets auth_token with HttpOnly, so JS can't read it —
+// but the browser still sends it in the Cookie header on same-domain POSTs.
+function readAuthTokenFromCookie(req) {
+    const raw = req.headers.cookie;
+    if (!raw) return null;
+    const m = raw.match(/(?:^|;\s*)auth_token=([^;]+)/);
+    if (!m) return null;
+    try { return decodeURIComponent(m[1]); } catch (e) { return m[1]; }
+}
+
 function parkingSearchHandler(req, res) {
     const { parkingAirport, parkingDropoffDate, parkingDropoffTime, parkingReturnDate, parkingReturnTime, outboundFlight, returnFlight, agentCode, visitorId, authToken } = req.body || {};
 
     if (!parkingAirport || !parkingDropoffDate || !parkingDropoffTime || !parkingReturnDate || !parkingReturnTime)
         return res.status(400).json({ error: 'missing required parking fields' });
+
+    const resolvedAuthToken = readAuthTokenFromCookie(req) || authToken || null;
 
     const redirectUrl = buildHxUrl(req.body);
 
@@ -205,7 +217,7 @@ function parkingSearchHandler(req, res) {
         ts:                       new Date().toISOString(),
         agentCode:                agentCode || 'WEB1',
         visitorId:                visitorId || null,
-        authToken:                authToken || null,
+        authToken:                resolvedAuthToken,
         parkingAirport,
         nights,
         parkingDropoffDate,
