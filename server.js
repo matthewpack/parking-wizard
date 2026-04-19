@@ -2,9 +2,128 @@ const express    = require('express');
 const compression = require('compression');
 const path       = require('path');
 const fs         = require('fs');
+const { Pool }   = require('pg');
 
 const app  = express();
 const PORT = process.env.PORT || 8080;
+
+// ─── Postgres ─────────────────────────────────────────────────────────────────
+const db = process.env.DATABASE_URL
+    ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } })
+    : null;
+
+async function initDb() {
+    if (!db) { console.log('[db] DATABASE_URL not set — using in-memory log only'); return; }
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS parking_search_log (
+            id                           SERIAL       PRIMARY KEY,
+            ts                           TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+            agent_code                   VARCHAR(20),
+            visitor_id                   VARCHAR(100),
+            parking_airport              VARCHAR(3),
+            nights                       SMALLINT,
+            parking_dropoff_date         DATE,
+            parking_dropoff_time         VARCHAR(5),
+            parking_return_date          DATE,
+            parking_return_time          VARCHAR(5),
+            outbound_flight              VARCHAR(20),
+            outbound_reference           VARCHAR(100),
+            outbound_departure_airport   VARCHAR(3),
+            outbound_departure_date      DATE,
+            outbound_departure_time      VARCHAR(5),
+            outbound_departure_terminal  VARCHAR(30),
+            outbound_arrival_airport     VARCHAR(3),
+            outbound_arrival_date        DATE,
+            outbound_arrival_time        VARCHAR(5),
+            outbound_dest                VARCHAR(100),
+            return_flight                VARCHAR(20),
+            return_reference             VARCHAR(100),
+            return_departure_airport     VARCHAR(3),
+            return_departure_date        DATE,
+            return_departure_time        VARCHAR(5),
+            return_departure_terminal    VARCHAR(30),
+            return_arrival_airport       VARCHAR(3),
+            return_arrival_date          DATE,
+            return_arrival_time          VARCHAR(5),
+            return_arrival_terminal      VARCHAR(30),
+            return_origin                VARCHAR(100),
+            redirect_url                 TEXT
+        )
+    `);
+    console.log('[db] parking_search_log table ready');
+}
+
+initDb().catch(e => console.error('[db] init error:', e.message));
+
+// Alias all snake_case columns to camelCase so admin/JSON/CSV stay consistent
+// whether we're reading from Postgres or the in-memory fallback.
+const SELECT_COLS = `
+    ts, agent_code AS "agentCode", visitor_id AS "visitorId",
+    parking_airport AS "parkingAirport", nights,
+    parking_dropoff_date AS "parkingDropoffDate", parking_dropoff_time AS "parkingDropoffTime",
+    parking_return_date  AS "parkingReturnDate",  parking_return_time  AS "parkingReturnTime",
+    outbound_flight             AS "outboundFlight",
+    outbound_reference          AS "outboundReference",
+    outbound_departure_airport  AS "outboundDepartureAirport",
+    outbound_departure_date     AS "outboundDepartureDate",
+    outbound_departure_time     AS "outboundDepartureTime",
+    outbound_departure_terminal AS "outboundDepartureTerminal",
+    outbound_arrival_airport    AS "outboundArrivalAirport",
+    outbound_arrival_date       AS "outboundArrivalDate",
+    outbound_arrival_time       AS "outboundArrivalTime",
+    outbound_dest               AS "outboundDest",
+    return_flight             AS "returnFlight",
+    return_reference          AS "returnReference",
+    return_departure_airport  AS "returnDepartureAirport",
+    return_departure_date     AS "returnDepartureDate",
+    return_departure_time     AS "returnDepartureTime",
+    return_departure_terminal AS "returnDepartureTerminal",
+    return_arrival_airport    AS "returnArrivalAirport",
+    return_arrival_date       AS "returnArrivalDate",
+    return_arrival_time       AS "returnArrivalTime",
+    return_arrival_terminal   AS "returnArrivalTerminal",
+    return_origin             AS "returnOrigin",
+    redirect_url              AS "redirectUrl"
+`;
+
+async function logSearch(entry) {
+    if (!db) return;
+    try {
+        await db.query(`
+            INSERT INTO parking_search_log (
+                agent_code, visitor_id,
+                parking_airport, nights,
+                parking_dropoff_date, parking_dropoff_time,
+                parking_return_date, parking_return_time,
+                outbound_flight, outbound_reference,
+                outbound_departure_airport, outbound_departure_date, outbound_departure_time, outbound_departure_terminal,
+                outbound_arrival_airport,   outbound_arrival_date,   outbound_arrival_time,
+                outbound_dest,
+                return_flight, return_reference,
+                return_departure_airport, return_departure_date, return_departure_time, return_departure_terminal,
+                return_arrival_airport,   return_arrival_date,   return_arrival_time,   return_arrival_terminal,
+                return_origin,
+                redirect_url
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)
+        `, [
+            entry.agentCode, entry.visitorId,
+            entry.parkingAirport, entry.nights,
+            entry.parkingDropoffDate, entry.parkingDropoffTime,
+            entry.parkingReturnDate, entry.parkingReturnTime,
+            entry.outboundFlight, entry.outboundReference || null,
+            entry.outboundDepartureAirport || null, entry.outboundDepartureDate || null, entry.outboundDepartureTime || null, entry.outboundDepartureTerminal || null,
+            entry.outboundArrivalAirport || null,   entry.outboundArrivalDate || null,   entry.outboundArrivalTime || null,
+            entry.outboundDest || null,
+            entry.returnFlight, entry.returnReference || null,
+            entry.returnDepartureAirport || null, entry.returnDepartureDate || null, entry.returnDepartureTime || null, entry.returnDepartureTerminal || null,
+            entry.returnArrivalAirport || null,   entry.returnArrivalDate || null,   entry.returnArrivalTime || null,   entry.returnArrivalTerminal || null,
+            entry.returnOrigin || null,
+            entry.redirectUrl,
+        ]);
+    } catch (e) {
+        console.error('[db] parking_search_log insert error:', e.message);
+    }
+}
 
 // Optional sub-path mount, e.g. '/parking-wizard' for path-based proxy routing.
 // Leave unset (or set to '') when running at root.
@@ -117,6 +236,7 @@ function parkingSearchHandler(req, res) {
     };
     searchLog.push(entry);
     if (searchLog.length > LOG_MAX) searchLog.shift();
+    logSearch(entry);
 
     console.log('\n' + '='.repeat(60));
     console.log('  POST /api/parking/search');
@@ -141,13 +261,36 @@ function checkAuth(req, res) {
     return true;
 }
 
-function logHandler(req, res) {
-    if (!checkAuth(req, res)) return;
+async function fetchRows({ limit = 500, offset = 0, all = false } = {}) {
+    if (db) {
+        const window = all ? '' : `WHERE ts >= NOW() - INTERVAL '24 hours'`;
+        const { rows } = await db.query(
+            `SELECT ${SELECT_COLS} FROM parking_search_log ${window} ORDER BY ts DESC LIMIT $1 OFFSET $2`,
+            [limit, offset]
+        );
+        const { rows: [{ count }] } = await db.query(
+            `SELECT COUNT(*) FROM parking_search_log ${window}`
+        );
+        return { total: parseInt(count, 10), rows };
+    }
     const rows = [...searchLog].reverse();
-    res.json({ total: rows.length, rows });
+    return { total: rows.length, rows };
 }
 
-function logCsvHandler(req, res) {
+async function logHandler(req, res) {
+    if (!checkAuth(req, res)) return;
+    const limit  = parseInt(req.query.limit)  || 500;
+    const offset = parseInt(req.query.offset) || 0;
+    try {
+        const { total, rows } = await fetchRows({ limit, offset });
+        res.json({ total, limit, offset, rows });
+    } catch (e) {
+        console.error('[db] log query error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+}
+
+async function logCsvHandler(req, res) {
     if (!checkAuth(req, res)) return;
     const cols = ['ts','agentCode','visitorId','parkingAirport','nights',
                   'parkingDropoffDate','parkingDropoffTime','parkingReturnDate','parkingReturnTime',
@@ -159,11 +302,15 @@ function logCsvHandler(req, res) {
                   'returnArrivalAirport','returnArrivalDate','returnArrivalTime','returnArrivalTerminal','returnOrigin',
                   'redirectUrl'];
     const esc = v => v == null ? '' : `"${String(v).replace(/"/g,'""')}"`;
-    const rows = [...searchLog].reverse();
-    const csv  = [cols.join(','), ...rows.map(r => cols.map(c => esc(r[c])).join(','))].join('\n');
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="parking-searches-${new Date().toISOString().slice(0,10)}.csv"`);
-    res.send(csv);
+    try {
+        const { rows } = await fetchRows({ limit: 5000, all: true });
+        const csv = [cols.join(','), ...rows.map(r => cols.map(c => esc(r[c])).join(','))].join('\n');
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="parking-searches-${new Date().toISOString().slice(0,10)}.csv"`);
+        res.send(csv);
+    } catch (e) {
+        res.status(500).type('text/plain').send('Export failed: ' + e.message);
+    }
 }
 
 function adminHandler(req, res) {
@@ -197,7 +344,7 @@ tr:hover td{background:#faf8ff}
 .sent a:hover{text-decoration:underline}
 </style></head><body>
 <header>
-  <h1>🅿️ Parking Wizard — Search Log (last ${searchLog.length ? searchLog.length : 0} in memory)</h1>
+  <h1>🅿️ Parking Wizard — Search Log ${db ? '(last 24h)' : '(in-memory)'}</h1>
   <nav style="display:flex;gap:.5rem;align-items:center">
     <a href="${mount}/api/log.csv${keyParam}" download>⬇ CSV</a>
     <a href="${mount}/api/log${keyParam}">JSON</a>
