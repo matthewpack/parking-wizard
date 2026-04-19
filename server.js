@@ -203,14 +203,18 @@ function readAuthTokenFromCookie(req) {
 }
 
 function parkingSearchHandler(req, res) {
-    const { parkingAirport, parkingDropoffDate, parkingDropoffTime, parkingReturnDate, parkingReturnTime, outboundFlight, returnFlight, agentCode, visitorId, authToken } = req.body || {};
+    const { parkingAirport, parkingDropoffDate, parkingDropoffTime, parkingReturnDate, parkingReturnTime, outboundFlight, returnFlight, agentCode, visitorId, authToken, prefetch } = req.body || {};
 
     if (!parkingAirport || !parkingDropoffDate || !parkingDropoffTime || !parkingReturnDate || !parkingReturnTime)
         return res.status(400).json({ error: 'missing required parking fields' });
 
-    const resolvedAuthToken = readAuthTokenFromCookie(req) || authToken || null;
-
     const redirectUrl = buildHxUrl(req.body);
+
+    // Summary-page prefetch: just compute the URL so the click feels instant.
+    // Do not log — only a real "Show prices" click should create a DB row.
+    if (prefetch) return res.json({ redirectUrl });
+
+    const resolvedAuthToken = readAuthTokenFromCookie(req) || authToken || null;
 
     const msPerDay = 86400000;
     const nights   = Math.round((new Date(parkingReturnDate) - new Date(parkingDropoffDate)) / msPerDay);

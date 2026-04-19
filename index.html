@@ -1949,20 +1949,28 @@ function buildReview() {
         rrRow('🚗', 'Dropping off car',      fmtNatural(dd) + ' at ' + fmtTime(dt), 2, dropNote) +
         rrRow('🏠', 'Returning to collect car', fmtNatural(rd) + ' at ' + fmtTime(rt), 5, retNote);
 
-    // Prefetch silently in background — button stays visible throughout
-    _prefetchedUrl = null;
-    _prefetchPromise = _buildSearchPayload().then(payload =>
-        fetch(_API + '/api/parking/search', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
+    // Prefetch silently in background — button stays visible throughout.
+    // prefetch:true tells the server to compute the URL but NOT log the search;
+    // only a real button click should create a DB row.
+    _prefetchedUrl     = null;
+    _prefetchedPayload = null;
+    _prefetchPromise = _buildSearchPayload().then(payload => {
+        _prefetchedPayload = payload;
+        return fetch(_API + '/api/parking/search', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({ ...payload, prefetch: true })
+        })
             .then(r => r.json())
             .then(({ redirectUrl }) => { _prefetchedUrl = redirectUrl; return redirectUrl; })
-            .catch(() => null)
-    );
+            .catch(() => null);
+    });
 
     track('parking-wizard-stage8-search-summary', a.code);
 }
 
-let _prefetchedUrl  = null;
-let _prefetchPromise = null;
+let _prefetchedUrl     = null;
+let _prefetchedPayload = null;
+let _prefetchPromise   = null;
 
 function rrRow(icon, label, value, step, extra) {
     return `<div class="review-row" onclick="goToStep(${step})" role="button" tabindex="0" aria-label="${esc(label)}: ${esc(value)}. Tap to edit."
@@ -2089,9 +2097,21 @@ async function submitSearch() {
 
     // Use prefetched URL if ready; otherwise wait for the in-flight promise
     const url = _prefetchedUrl || await _prefetchPromise;
-    if (url) { window.location.href = url; return; }
+    if (url) {
+        // Fire-and-forget log POST that survives the navigation (keepalive).
+        // Server uses presence-of-log-POST as the "user actually clicked" signal.
+        const logPayload = _prefetchedPayload || await _buildSearchPayload();
+        try {
+            fetch(_API + '/api/parking/search', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(logPayload), keepalive: true,
+            }).catch(() => {});
+        } catch (e) {}
+        window.location.href = url;
+        return;
+    }
 
-    // Fallback: build fresh (should rarely be needed)
+    // Fallback: build fresh (logs as normal — no prefetch flag)
     const payload = await _buildSearchPayload();
     const { redirectUrl } = await fetch('/api/parking/search', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
