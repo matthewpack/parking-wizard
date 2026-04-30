@@ -84,11 +84,12 @@ parking-wizard/
 ├── Procfile                # Heroku web dyno declaration
 ├── LOGIC.md                # Logic engine reference — dates, times, flight logic
 ├── SKILLS.md               # AI skills reference — API guide for agent-driven bookings
-├── fuse.min.js             # Fuse.js fuzzy search library (vendored)
-├── nunito-latin.woff2      # Self-hosted font
-├── logo.webp / logo.png    # Brand assets (WebP primary, PNG fallback)
-├── get-holiday-ready.*     # Hero images (WebP + JPEG fallback, 824w + full)
-└── mole-favicon-package/   # Favicon assets (multiple sizes + formats)
+└── public/                 # Static assets — only this directory is HTTP-accessible
+    ├── fuse.min.js             # Fuse.js fuzzy search library (vendored)
+    ├── nunito-latin.woff2      # Self-hosted font
+    ├── logo.webp / logo.png    # Brand assets (WebP primary, PNG fallback)
+    ├── get-holiday-ready.*     # Hero images (WebP + JPEG fallback, 824w + full)
+    └── mole-favicon-package/   # Favicon assets (multiple sizes + formats)
 ```
 
 ---

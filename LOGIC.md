@@ -288,8 +288,14 @@ The return date picker enforces a minimum of `dropoffDate + 1 day`. You cannot c
 ### 5. Path-based routing and `<base href>`
 When served via `holidayextras.com/parking-wizard/`, Express injects `<base href="/parking-wizard/">` into the HTML so all relative asset URLs resolve correctly. This injection is gated on `req.baseUrl` being non-empty — direct Heroku URL access never gets the tag, which matters because `<base href>` was found to interfere with GPS permission detection in some browsers.
 
-### 6. Flight cache
-Fetched flight data is cached in memory (`_flightCache`) for the session. Date-strip tab switching is therefore instant for already-fetched dates. The cache is also pre-warmed: when step 3 loads, it immediately fetches the next day's flights in the background so tab-switching feels instant.
+### 6. Flight cache (client + server)
+
+**Client-side (`_flightCache` in `index.html`):** Flight data is cached in a `Map` for the lifetime of the browser tab. Date-strip tab switching is therefore instant for already-fetched dates. The cache is also pre-warmed: when step 3 loads, it immediately fetches the next day's flights in the background so tab-switching feels instant.
+
+**Server-side (`flightCache` in `server.js`):** The `/api/flights` proxy caches upstream responses in a `Map` for 4 hours (one `Map` entry per unique `location:date[:destination][:query]` key). Without eviction this cache grows forever — at ~3k visitors/day each fetching 2–4 unique flight queries, it can accumulate thousands of entries and exhaust the Heroku dyno memory quota (R14 errors). Three layers of eviction are in place:
+1. A `setInterval` sweep runs every 30 minutes and deletes any entry whose TTL has expired.
+2. When a new entry is about to be written and `flightCache.size >= 500`, the sweep runs immediately.
+3. If the cache is still at the cap after the sweep (all entries unexpired — e.g. a traffic burst), the oldest entry is FIFO-evicted: `flightCache.delete(flightCache.keys().next().value)`. `Map` preserves insertion order so `.keys().next().value` is always the oldest key.
 
 ---
 
@@ -374,6 +380,53 @@ The search log is stored in Postgres (`parking_search_log` table) when `DATABASE
 
 ---
 
+## Server Memory Management & Heroku Performance
+
+### Background — R14 memory quota exceeded (April 2026)
+
+After launch the app accumulated **1,314 R14 (memory quota exceeded) events** in a 24-hour window on the EU production dyno. Peak memory hit **1,061 MB — 207% of the 512 MB standard-1x quota**. Average memory was 365 MB and trending up over the lifetime of each dyno restart. Response time p95 spiked to 6.4 s (from a normal 5–8 ms median) during the worst periods, caused by the OS swapping when physical memory was exhausted.
+
+Root cause: the server-side `flightCache` Map (see Edge Case #6 above) had no eviction. Every unique flight query added a permanent entry. At ~3k visitors/day making 2–4 flight API calls each, the cache grew to several hundred MB within hours and never shrank.
+
+### Fixes applied
+
+| Area | Change | Why |
+|---|---|---|
+| `flightCache` eviction | 30-min TTL sweep + 500-entry cap + FIFO hard-evict | Prevents unbounded Map growth; cap is a safety net for traffic bursts where all entries are still within TTL |
+| Postgres pool | `max: 5` connections per dyno, `idleTimeoutMillis: 30 000`, `connectionTimeoutMillis: 5 000` | Default pg pool has no cap; under burst traffic it would spawn unlimited connections, hitting Heroku Postgres essential-0 limit (25 total) |
+| Static assets → `public/` | `express.static(__dirname, …)` → `express.static(path.join(__dirname, 'public'), …)` | Old config made `server.js`, `package.json`, and `node_modules/` HTTP-accessible. Now only `public/` is served. |
+
+### Dyno sizing (production, as of April 2026)
+
+| Config | Dynos | RAM per dyno | Total RAM | DB connections |
+|---|---|---|---|---|
+| Before fix | 2× standard-1x | 512 MB | 1 GB | Uncapped (default 10) |
+| After fix | 4× standard-2x | 1 GB | 4 GB | `max: 5` → 20 total |
+
+The dyno upgrade was applied in parallel as belt-and-braces cover while the code fix was prepared. With eviction in place the app runs comfortably within a single standard-1x dyno at current traffic; the 2x sizing gives headroom for growth and reduces R14 risk to near-zero.
+
+### Monitoring
+
+```bash
+# Tail live logs including R14 events
+heroku logs --tail --app parking-wizard-hx-eu
+
+# Current dyno memory
+heroku ps --app parking-wizard-hx-eu
+```
+
+R14 events appear in logs as:
+```
+Error R14 (Memory quota exceeded)
+```
+
+If R14 events reappear, check:
+1. `flightCache` size — add a `/api/debug/cache` endpoint temporarily if needed
+2. Whether a new unbounded data structure has been introduced
+3. Whether traffic has grown enough to need more dynos (check Heroku Metrics → Memory Usage → Average, not Max)
+
+---
+
 ## Files
 
 ```
@@ -382,7 +435,13 @@ parking-wizard/
 ├── server.js      — Express server: flight proxy, search endpoint, Postgres log, admin dashboard
 ├── package.json   — Node deps (express, compression, pg, html-minifier-terser)
 ├── Procfile       — Heroku: web: node server.js
-└── LOGIC.md       — this document
+├── LOGIC.md       — this document
+└── public/        — static assets served by express.static (only this dir is HTTP-accessible)
+    ├── fuse.min.js
+    ├── nunito-latin.woff2
+    ├── logo.webp / logo.png / logo.jpg
+    ├── get-holiday-ready.*
+    └── mole-favicon-package/
 ```
 
 The single-file frontend is intentional — no build tooling, no bundler, deployable as-is. The `heroku-postbuild` script minifies `index.html` with `html-minifier-terser` (JS compress and mangle both disabled to keep function names intact for the inline event handlers).
