@@ -78,7 +78,7 @@ Many HX customers book an airport hotel the night before their flight. The hotel
 2. **Day 2 (morning)** — Customer takes their bags to the terminal and flies
 3. **Day N (return)** — Flight lands, customer retrieves their car from the hotel car park
 
-In the wizard, the user picks **when they park the car** on step 2 and **when their flight departs** on step 3. These can be on different days — the calendar on step 2 allows any date from today up to 365 days ahead with no constraint relating to the flight.
+In the wizard, the user picks **when they park the car** on step 2 and **when their flight departs** on step 3. These can be on different days — the calendar on step 2 allows any date from today up to 710 days ahead with no constraint relating to the flight.
 
 The outbound flight step then shows a **2-tab date strip** (the drop-off date and the following day) precisely to handle this:
 - If parking on Monday night → show outbound flights for both Monday and Tuesday
@@ -258,17 +258,16 @@ Ordinal suffixes (1st, 2nd, 3rd, 4th…) handle the 11th/12th/13th exception cor
 
 ## Agent Code
 
-When the wizard runs embedded on `holidayextras.com`, the HX `agent` cookie is present (e.g. `agent=WEB1`). The agent code controls which products are shown and what prices are applied in the search results.
+When the wizard runs embedded on `holidayextras.com`, an `agent` code identifies the traffic source (e.g. `WEB1`, `WY992`). The agent code controls which products are shown and what prices are applied in the search results.
 
-The client reads it on submission:
-```js
-function _getAgentCode() {
-    const c = document.cookie.split(';').map(s => s.trim()).find(s => /^agent=/i.test(s));
-    return c ? c.split('=').slice(1).join('=').toUpperCase() : '';
-}
-```
+`_getAgentCode()` resolves the code with strict priority:
 
-It's included in the `POST /api/parking/search` payload as `agentCode`, threaded into the HX search URL as `&agent=WEB1`, and written to the server-side search log. When accessed directly via the Heroku URL (no HX cookies), it falls back to `WEB1`.
+1. **URL parameter** (`?agent=WY992`) — highest priority. Covers direct links from campaigns. When found, it's persisted to both `sessionStorage` and (if no agent cookie already exists) a first-party cookie for the rest of the browser's life.
+2. **sessionStorage** cache — faster than re-parsing cookies on every page.
+3. **Cookies** — `agent`, `agentcode`, or `hx_agent`, in that order. Holiday Extras sets `agent=WEB1` on the root domain.
+4. **Default** — falls back to `WEB1`.
+
+It's included in the `POST /api/parking/search` payload as `agentCode`, threaded into the HX search URL as `&agent=WEB1`, and written to the server-side search log.
 
 ---
 
@@ -296,12 +295,82 @@ Fetched flight data is cached in memory (`_flightCache`) for the session. Date-s
 
 ## API Endpoints (Server)
 
-| Method | Path | What it does |
-|---|---|---|
-| `GET` | `/api/flights?location=LGW&date=2026-04-14` | Proxy to HX flights API; cached 5 min |
-| `GET` | `/api/flights?location=LGW&date=2026-04-14&destination=NCE` | Return flights (inbound direction) |
-| `POST` | `/api/parking/search` | Build HX search URL, log search, return `{ redirectUrl }` |
-| `GET` | `/api/log` | Last 200 searches (no PII) |
+| Method | Path | Auth | What it does |
+|---|---|---|---|
+| `GET`  | `/api/flights?location=LGW&date=2026-04-14` | — | Proxy to HX flights API; cached 4 hr in-memory, 500-entry cap with FIFO eviction |
+| `GET`  | `/api/flights?location=LGW&date=2026-04-14&destination=NCE` | — | Return flights (inbound direction) |
+| `POST` | `/api/parking/search` | — | Build HX search URL; if `prefetch:true` returns URL only, otherwise logs to Postgres. Returns `{ redirectUrl }` |
+| `GET`  | `/api/log` | `?key=$ADMIN_KEY` | Postgres-backed search log, 24h window, paginated JSON. **Contains PII** (authToken, visitorId). |
+| `GET`  | `/api/log.csv` | `?key=$ADMIN_KEY` | Full CSV export (up to 5000 rows, no 24h limit) |
+| `GET`  | `/admin` | `?key=$ADMIN_KEY` | Live HTML dashboard — 24h log, filter, copy, links to JSON/CSV |
+
+---
+
+## Auth Token (`auth_token` cookie)
+
+Holiday Extras sets an `auth_token` cookie on `holidayextras.com` when a customer is signed in. The downstream "trip" team uses this token to reconstruct the customer's account and link the parking search back to a trip record.
+
+**Critical detail:** the cookie is **HttpOnly**, so `document.cookie` returns nothing — the browser will not expose it to client JS. Instead, the browser still attaches it to same-origin requests automatically. The server reads it from the request `Cookie` header:
+
+```js
+function readAuthTokenFromCookie(req) {
+    const raw = req.headers.cookie || '';
+    const m = raw.match(/(?:^|;\s*)auth_token=([^;]+)/);
+    if (!m) return null;
+    try { return decodeURIComponent(m[1]); } catch (e) { return m[1]; }
+}
+```
+
+`decodeURIComponent` is important — Rails-style session tokens end in `==` padding which gets URL-encoded to `%3D%3D` in the Cookie header. Without decoding, the admin UI would show a token that superficially differs from the one Chrome DevTools shows under Application → Cookies. They must match byte-for-byte for the downstream team to use it.
+
+The JSON body also accepts a client-supplied `authToken` field as a fallback — useful in dev/testing environments where the cookie isn't set. The server prefers the cookie value when both are present.
+
+---
+
+## Prefetch / Commit Pattern for Search Logging
+
+The summary page (step 8) calls `POST /api/parking/search` on render to warm the redirect URL so the click feels instant. Originally this also logged the search — which meant **every refresh or back-navigation to the summary page created a duplicate DB row**, making the log useless for intent tracking.
+
+**Fix:** split the call into two distinct phases using a `prefetch` flag.
+
+1. **Prefetch (page render):** client POSTs with `{ ...payload, prefetch: true }`. Server computes `redirectUrl` and returns it without touching the DB. Client caches the payload in a module-level `_prefetchedPayload` so the click phase doesn't rebuild it.
+
+2. **Commit (button click):** client POSTs again with the same payload and **no** `prefetch` flag, using `fetch({ keepalive: true })` so the request survives the immediate `window.location.href = redirectUrl` navigation. Server logs the entry to Postgres and returns the URL (the client has already started navigating, so the response is discarded).
+
+```js
+// Client: summary page render
+_prefetchPromise = _buildSearchPayload().then(payload => {
+    _prefetchedPayload = payload;
+    return fetch(_API + '/api/parking/search', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ ...payload, prefetch: true })
+    }).then(r => r.json());
+});
+
+// Client: "Show prices" click
+const logPayload = _prefetchedPayload || await _buildSearchPayload();
+fetch(_API + '/api/parking/search', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(logPayload), keepalive: true,
+}).catch(()=>{});
+window.location.href = redirectUrl;
+
+// Server: parkingSearchHandler
+const redirectUrl = buildHxUrl(req.body);
+if (prefetch) return res.json({ redirectUrl });  // early return — no DB write
+```
+
+This pattern is also why the DB row count is trustworthy as a conversion signal: one row per intentional "Show prices" click.
+
+---
+
+## Persistence
+
+The search log is stored in Postgres (`parking_search_log` table) when `DATABASE_URL` is set, otherwise falls back to an in-memory ring buffer of the last 200 entries (dev mode only).
+
+- **Schema migrations** are handled with `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE ADD COLUMN IF NOT EXISTS`. The `auth_token` column was added this way after the table was first provisioned.
+- **Index:** `parking_search_log_ts_idx ON (ts DESC)`. Every `/admin` and `/api/log` query filters on `ts >= NOW() - INTERVAL '24 hours'` — at 3k searches/day this scan adds up fast without the index.
+- **Writes are fire-and-forget.** `parkingSearchHandler` calls `logSearch(entry)` without awaiting — the response to the client races ahead. If the DB write fails, the error is logged and the customer is unaffected.
 
 ---
 
@@ -310,10 +379,10 @@ Fetched flight data is cached in memory (`_flightCache`) for the session. Date-s
 ```
 parking-wizard/
 ├── index.html     — entire front-end (HTML + CSS + JS, single file, minified on deploy)
-├── server.js      — Express server: flight proxy, search endpoint, search log
-├── package.json   — Node deps (express, compression, html-minifier-terser)
+├── server.js      — Express server: flight proxy, search endpoint, Postgres log, admin dashboard
+├── package.json   — Node deps (express, compression, pg, html-minifier-terser)
 ├── Procfile       — Heroku: web: node server.js
 └── LOGIC.md       — this document
 ```
 
-The single-file frontend is intentional for this prototype stage — no build tooling, no bundler, deployable as-is. The `heroku-postbuild` script minifies `index.html` with `html-minifier-terser` (JS compress and mangle both disabled to keep function names intact for the inline event handlers).
+The single-file frontend is intentional — no build tooling, no bundler, deployable as-is. The `heroku-postbuild` script minifies `index.html` with `html-minifier-terser` (JS compress and mangle both disabled to keep function names intact for the inline event handlers).

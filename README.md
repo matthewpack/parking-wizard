@@ -2,6 +2,8 @@
 
 A streamlined, mobile-first booking wizard for Holiday Extras airport parking. Guides users through an 8-step flow — airport, dates, times, and optional outbound/return flights — then hands them off to the Holiday Extras checkout with all search parameters pre-filled.
 
+**Status:** Live in production (v1.0.0) at `holidayextras.com/airport-parking-wizard/`, serving ~3k visitors/day.
+
 ---
 
 ## Features
@@ -15,9 +17,15 @@ A streamlined, mobile-first booking wizard for Holiday Extras airport parking. G
 - **Recents & favourites** — airports and flights persist in localStorage for quick repeat bookings
 - **Seamless HX handoff** — submits to Holiday Extras with all parameters serialised into the correct URL format
 - **Shimmer skeleton loading** — while flights load, animated placeholder rows mirror the real flight row layout so the UI never shows a blank container
-- **HX agent code** — reads the `agent` cookie set by holidayextras.com and passes it through the search payload to control product visibility and pricing on the results page
-- **Server-side flight caching** — 4-hour in-memory cache on the proxy layer to reduce upstream API calls
-- **JS/CSS minification** — `html-minifier-terser` runs as a `heroku-postbuild` step, saving ~5 KiB on every deploy
+- **HX agent code** — reads the `agent` cookie / URL param / sessionStorage set by holidayextras.com and passes it through the search payload to control product visibility and pricing on the results page
+- **HX auth token capture** — server-side reads the `auth_token` cookie (HttpOnly, invisible to JS) from the request header so the downstream trip-reconstruction team can link searches back to a customer
+- **Visitor ID capture** — stable per-browser ID saved to localStorage and logged alongside each search
+- **Prefetch / commit pattern** — the summary page prefetches the redirect URL without logging; only the actual "Show prices" click fires a `keepalive` POST that records the search
+- **Postgres-backed search log** — every completed search is persisted to Postgres; rolling 24-hour window shown in the admin dashboard
+- **Admin dashboard** — `/admin` (auth-gated via `?key=ADMIN_KEY`) with live filter, click-to-copy IDs, CSV export
+- **WebP assets** — logo and hero images served as WebP with JPEG/PNG fallback (~60 KiB saved per first-time visitor)
+- **Server-side flight caching** — 4-hour in-memory cache on the proxy layer; capped at 500 entries with a 30-minute TTL sweep and FIFO hard-eviction to prevent unbounded memory growth
+- **JS/CSS minification** — `html-minifier-terser` runs as a `heroku-postbuild` step
 - **iPhone safe-area support** — `viewport-fit=cover` + `env(safe-area-inset-top)` for PWA/home-screen installs
 
 ---
@@ -30,6 +38,7 @@ A streamlined, mobile-first booking wizard for Holiday Extras airport parking. G
 | Search | [Fuse.js](https://fusejs.io/) v7 (client-side fuzzy search) |
 | Font | Nunito (self-hosted WOFF2) |
 | Backend | Node.js 20 + Express 4 |
+| Database | Postgres (via `pg`), auto-provisioned on Heroku |
 | Compression | gzip/Brotli via `compression` middleware |
 | Minification | `html-minifier-terser` (Heroku post-build) |
 | Deployment | Heroku-compatible (`Procfile`) |
@@ -59,7 +68,9 @@ The server starts on port `8080` by default. Open `http://localhost:8080` in you
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `8080` | HTTP port the server listens on |
-| `MOUNT_PATH` | _(empty)_ | Optional sub-path prefix, e.g. `/parking-wizard`. Used when the app is served behind a path-based reverse proxy (e.g. Cloudflare on holidayextras.com). When set, injects `<base href>` and `window._basePath` into the HTML so all assets resolve correctly. Leave unset for direct Heroku URL access. |
+| `MOUNT_PATH` | _(empty)_ | Optional sub-path prefix, e.g. `/airport-parking-wizard`. Used when the app is served behind a path-based reverse proxy (e.g. Cloudflare on holidayextras.com). When set, injects `<base href>` and `window._basePath` into the HTML so all assets resolve correctly. Leave unset for direct Heroku URL access. |
+| `DATABASE_URL` | _(empty)_ | Postgres connection string. Set automatically by Heroku Postgres. When absent, the app falls back to an in-memory ring buffer for the search log (dev only). |
+| `ADMIN_KEY` | _(empty)_ | Shared secret required as `?key=` on `/admin`, `/api/log`, and `/api/log.csv`. When unset, those endpoints are open (dev only — **always set in production**). |
 
 ---
 
@@ -68,15 +79,15 @@ The server starts on port `8080` by default. Open `http://localhost:8080` in you
 ```
 parking-wizard/
 ├── index.html              # Single-page application (all UI + JS)
-├── server.js               # Express server — API proxy + parking search
+├── server.js               # Express server — API proxy, parking search, admin dashboard
 ├── package.json
 ├── Procfile                # Heroku web dyno declaration
 ├── LOGIC.md                # Logic engine reference — dates, times, flight logic
 ├── SKILLS.md               # AI skills reference — API guide for agent-driven bookings
 ├── fuse.min.js             # Fuse.js fuzzy search library (vendored)
 ├── nunito-latin.woff2      # Self-hosted font
-├── logo.png / logo.jpg     # Brand assets
-├── get-holiday-ready.*     # Hero images (WebP + JPEG fallback)
+├── logo.webp / logo.png    # Brand assets (WebP primary, PNG fallback)
+├── get-holiday-ready.*     # Hero images (WebP + JPEG fallback, 824w + full)
 └── mole-favicon-package/   # Favicon assets (multiple sizes + formats)
 ```
 
@@ -86,7 +97,7 @@ parking-wizard/
 
 ### `GET /api/flights`
 
-Proxy to the Holiday Extras flight search API with in-memory caching (4-hour TTL).
+Proxy to the Holiday Extras flight search API with in-memory caching (4-hour TTL, 500-entry cap with FIFO eviction).
 
 **Query parameters**
 
@@ -131,47 +142,64 @@ Raw JSON from the Holiday Extras dock-yard API. The client normalises this with 
 
 ### `POST /api/parking/search`
 
-Accepts a semantic search payload, builds the Holiday Extras redirect URL, logs the search, and returns the URL for the client to navigate to.
+Accepts a semantic search payload, builds the Holiday Extras redirect URL, logs the search to Postgres, and returns the URL for the client to navigate to.
+
+**Two modes** — the `prefetch` flag controls whether a DB row is written:
+
+- `prefetch: true` — just compute and return `redirectUrl`. No logging. Used by the summary page to warm the redirect target without creating phantom rows on refresh / back-nav.
+- `prefetch` absent / false — compute the URL, log the full search entry to Postgres, return the URL. The client fires this with `fetch({ keepalive: true })` on the real "Show prices" click so the POST survives `window.location.href` navigation.
 
 **Request body** (`application/json`)
 
 ```json
 {
-  "agentCode":         "WEB1",
-  "parkingAirport":    "LGW",
+  "agentCode":          "WEB1",
+  "visitorId":          "v-abc123xyz",
+  "parkingAirport":     "LGW",
   "parkingDropoffDate": "2026-04-18",
   "parkingDropoffTime": "08:00",
   "parkingReturnDate":  "2026-04-25",
   "parkingReturnTime":  "16:00",
   "outboundFlight": {
-    "code":               "BA1234",
-    "departureTerminal":  "N",
-    "arrivalAirport":     "MAD"
+    "code":              "BA1234",
+    "reference":         "BA1234-2026-04-18",
+    "departureAirport":  "LGW",
+    "departureDate":     "2026-04-18",
+    "departureTime":     "10:15",
+    "departureTerminal": "N",
+    "arrivalAirport":    "MAD",
+    "arrivalDate":       "2026-04-18",
+    "arrivalTime":       "13:45",
+    "dest":              "Madrid Barajas"
   },
   "returnFlight": {
-    "code":               "IB3167",
-    "arrivalTerminal":    "N",
-    "departureAirport":   "MAD"
-  }
+    "code":              "IB3167",
+    "reference":         "IB3167-2026-04-25",
+    "departureAirport":  "MAD",
+    "departureDate":     "2026-04-25",
+    "departureTime":     "15:30",
+    "departureTerminal": "4",
+    "arrivalAirport":    "LGW",
+    "arrivalDate":       "2026-04-25",
+    "arrivalTime":       "17:20",
+    "arrivalTerminal":   "N"
+  },
+  "prefetch": false
 }
 ```
 
 | Field | Required | Description |
 |---|---|---|
-| `agentCode` | No | HX agent code read from the `agent` cookie (e.g. `WEB1`). Controls which products are shown and pricing applied on the HX results page. Defaults to `WEB1` if absent. |
+| `agentCode` | No | HX agent code — read from `agent` URL param, sessionStorage, or cookie, in that order. Controls product visibility and pricing on the HX results page. Defaults to `WEB1` if absent. |
+| `visitorId` | No | Stable per-browser ID (localStorage). Logged for analytics. |
+| `authToken` | No (server-read) | HX auth token. The browser sends this as an HttpOnly cookie (`auth_token`); the server reads it from the request's `Cookie` header. Client-supplied `authToken` in the body is used only as a fallback on environments where the cookie isn't set. |
+| `prefetch` | No | When `true`, skip all logging and just return `redirectUrl`. |
 | `parkingAirport` | Yes | 3-letter IATA code of the parking airport |
 | `parkingDropoffDate` | Yes | Date the car is dropped off (`YYYY-MM-DD`) |
 | `parkingDropoffTime` | Yes | Time the car is dropped off (`HH:MM`, 24-hour; may be `00:01` or `23:59`) |
 | `parkingReturnDate` | Yes | Date the car is collected (`YYYY-MM-DD`) |
 | `parkingReturnTime` | Yes | Time the car is collected (`HH:MM`, 24-hour; may be `00:01` or `23:59`) |
-| `outboundFlight` | No | Selected outbound flight object |
-| `outboundFlight.code` | No | IATA flight code, e.g. `BA1234` |
-| `outboundFlight.departureTerminal` | No | Terminal letter/number, e.g. `N`, `S`, `2` |
-| `outboundFlight.arrivalAirport` | No | Destination airport IATA code |
-| `returnFlight` | No | Selected return flight object |
-| `returnFlight.code` | No | IATA flight code |
-| `returnFlight.arrivalTerminal` | No | Arrival terminal at parking airport |
-| `returnFlight.departureAirport` | No | Departure airport IATA code |
+| `outboundFlight` / `returnFlight` | No | Full flight objects as produced by the client's `normaliseFlights()`. All inner fields are optional — the server persists whatever is supplied. |
 
 **Response**
 
@@ -189,30 +217,71 @@ Accepts a semantic search payload, builds the Holiday Extras redirect URL, logs 
 
 ---
 
-### `GET /api/log`
+### `GET /api/log` *(auth-gated)*
 
-Returns the rolling in-memory log of the last 200 parking searches. No PII is stored — only airport codes, dates, times, flight codes, and terminals.
+Returns the Postgres-backed search log as JSON. Rolling **24-hour window** by default; paginated with `?limit=` and `?offset=` (default 500 / 0).
+
+Auth: append `?key=$ADMIN_KEY`. Returns `401` otherwise when `ADMIN_KEY` is set.
+
+⚠️ **Contains PII** — the `authToken` and `visitorId` fields identify authenticated Holiday Extras customers. This endpoint is locked down in production and the downstream team consumes it indirectly via the planned webhook.
 
 **Response**
 
 ```json
-[
-  {
-    "ts":                       "2026-04-18T07:30:00.000Z",
-    "agentCode":                 "WEB1",
-    "parkingAirport":            "LGW",
-    "nights":                    7,
-    "parkingDropoffDate":        "2026-04-18",
-    "parkingDropoffTime":        "08:00",
-    "parkingReturnDate":         "2026-04-25",
-    "parkingReturnTime":         "16:00",
-    "outboundFlight":            "BA1234",
-    "outboundDepartureTerminal": "N",
-    "returnFlight":              "IB3167",
-    "returnArrivalTerminal":     "N"
-  }
-]
+{
+  "total":  342,
+  "limit":  500,
+  "offset": 0,
+  "rows": [
+    {
+      "ts":                        "2026-04-18T07:30:00.000Z",
+      "agentCode":                 "WEB1",
+      "visitorId":                 "v-abc123xyz",
+      "authToken":                 "BAh7CkkiD3Nlc3Npb25faWQ...==--abc123",
+      "parkingAirport":            "LGW",
+      "nights":                    7,
+      "parkingDropoffDate":        "2026-04-18",
+      "parkingDropoffTime":        "08:00",
+      "parkingReturnDate":         "2026-04-25",
+      "parkingReturnTime":         "16:00",
+      "outboundFlight":            "BA1234",
+      "outboundReference":         "BA1234-2026-04-18",
+      "outboundDepartureAirport":  "LGW",
+      "outboundDepartureDate":     "2026-04-18",
+      "outboundDepartureTime":     "10:15",
+      "outboundDepartureTerminal": "N",
+      "outboundArrivalAirport":    "MAD",
+      "outboundArrivalDate":       "2026-04-18",
+      "outboundArrivalTime":       "13:45",
+      "outboundDest":              "Madrid Barajas",
+      "returnFlight":              "IB3167",
+      "returnReference":           "IB3167-2026-04-25",
+      "returnDepartureAirport":    "MAD",
+      "returnDepartureDate":       "2026-04-25",
+      "returnDepartureTime":       "15:30",
+      "returnDepartureTerminal":   "4",
+      "returnArrivalAirport":      "LGW",
+      "returnArrivalDate":         "2026-04-25",
+      "returnArrivalTime":         "17:20",
+      "returnArrivalTerminal":     "N",
+      "returnOrigin":              "MAD",
+      "redirectUrl":               "https://www.holidayextras.com/static/?..."
+    }
+  ]
+}
 ```
+
+---
+
+### `GET /api/log.csv` *(auth-gated)*
+
+CSV export of **all** search log rows (not limited to 24h). Up to 5000 rows. Auth: `?key=$ADMIN_KEY`. Download filename: `parking-searches-YYYY-MM-DD.csv`.
+
+---
+
+### `GET /admin` *(auth-gated)*
+
+Live HTML dashboard for the last 24h of searches. Click-to-copy visitor IDs and auth tokens; free-text filter; direct links to the JSON and CSV endpoints. Auth: `?key=$ADMIN_KEY`.
 
 ---
 
@@ -260,7 +329,7 @@ Step 1  Airport selection
         → Airports sorted by distance; recents shown at top
 
 Step 2  Drop-off date
-        → Calendar picker (today + up to 365 days ahead)
+        → Calendar picker (today + up to 710 days ahead)
 
 Step 3  Outbound flight  (skippable — Skip button sits on the title line)
         → Flights fetched from /api/flights for selected airport + date
@@ -296,8 +365,8 @@ Step 7  Return time  (question includes the collection date for clarity)
 
 Step 8  Review & submit
         → Summary of all selections with natural-language dates and formatted times
-        → POST /api/parking/search in background (prefetch)
-        → On confirm: navigate to redirectUrl
+        → POST /api/parking/search with { prefetch:true } on page render — warms the redirectUrl, no DB row
+        → On confirm: fire a keepalive POST (same payload, no prefetch flag) to log, then navigate to redirectUrl
 ```
 
 ---
@@ -312,27 +381,31 @@ web: node server.js
 
 Any platform that runs `node server.js` and exposes a `PORT` environment variable will work (Railway, Render, Fly.io, etc.).
 
-Static assets (images, fonts, fuse.js) are served with a 30-day `Cache-Control` header. `index.html` is served with `no-cache` so deployments take effect immediately.
+Static assets (images, fonts, fuse.js) live in `public/` and are served with a 30-day `Cache-Control` header. `index.html` is served with `no-cache` so deployments take effect immediately. Keeping assets in `public/` means `server.js`, `package.json`, and other root files are never HTTP-accessible.
 
 A `heroku-postbuild` npm script runs `html-minifier-terser` to minify the JS and CSS inside `index.html` before the dyno starts. Flags used: `--minify-js '{"compress":false,"mangle":false}'` — compression is disabled to avoid code transformations that could affect GPS/geolocation callbacks; mangling is disabled to preserve function names used in inline `onclick` handlers.
 
-**Live deployments:**
+**Live deployment:**
 
 | App | Region | URL | Used by |
 |---|---|---|---|
-| `parking-wizard-hx-eu` | EU (Dublin) | `https://parking-wizard-hx-eu-a0df79b1e7b3.herokuapp.com/` | Production — path-proxied via Cloudflare at `holidayextras.com/parking-wizard/` |
-| `parking-wizard-hx` | US | `https://parking-wizard-hx-e29e0d876ce4.herokuapp.com/` | Backup / staging |
+| `parking-wizard-hx-eu` | EU (Dublin) | `https://parking-wizard-hx-eu-a0df79b1e7b3.herokuapp.com/` | Production — 4 standard-2x dynos, path-proxied via Cloudflare at `holidayextras.com/airport-parking-wizard/`, dedicated Heroku Postgres essential-0 |
 
 **Tail live logs:**
 ```bash
 heroku logs --tail --app parking-wizard-hx-eu
 ```
 
+**Run ad-hoc DB commands:**
+```bash
+heroku run --app parking-wizard-hx-eu node -e "..."
+```
+
 ---
 
 ## Local Development Tips
 
-- **Flight data is cached for 4 hours.** Restart the server to bust the cache during development.
+- **Flight data is cached for 4 hours** (500-entry cap; capped entries are FIFO-evicted). Restart the server to bust the cache during development.
 - **Back-button support** — the wizard saves state to `sessionStorage`, so a full page reload is needed to reset the flow during testing.
 - **No build step locally** — edit `index.html` or `server.js` and refresh. Minification only runs on Heroku.
 - **GPS on localhost** — browsers may block geolocation on plain `http://`. Use Chrome's localhost exception or test on a deployed URL.
@@ -351,11 +424,25 @@ heroku logs --tail --app parking-wizard-hx-eu
 
 ## Future Ideas
 
+### Push searches downstream via webhook
+
+The downstream "trip" team needs each parking search (auth token + flight details + parking window) so they can create / enrich a trip and start messaging the customer about other products. Current plan — **fire-and-forget webhook** from `parkingSearchHandler` after the Postgres insert:
+
+```
+POST https://trip-team.holidayextras.com/hooks/parking-search
+X-Webhook-Secret: <shared secret in Heroku config>
+Content-Type: application/json
+
+<the full search entry — same shape as a row from /api/log>
+```
+
+Webhook over pub/sub queue because: simple, one consumer, 10-minute downtime is fine (searches are not mission-critical), no new infra. If throughput ever becomes a problem or a second consumer appears, swap to SNS/SQS or Heroku Redis.
+
 ### Return from a different airport (open jaw)
 
 **The scenario:** Customer flies Gatwick → Alicante but returns Malaga → Gatwick. Step 6 currently hardcodes the outbound destination (Alicante) as the return search origin.
 
-**What's shipped (v157):** A "Returning from a different airport?" link now appears on step 6, below the route context line. Clicking it skips the return flight step (same as Skip), so the customer can continue to pick their car collection time manually. Simple, no dead ends.
+**What's shipped:** A "Returning from a different airport?" link appears on step 6, below the route context line. Clicking it skips the return flight step (same as Skip), so the customer can continue to pick their car collection time manually. Simple, no dead ends.
 
 **The next step — all-inbound endpoint:** The HX flight search API supports fetching every flight arriving at an airport on a given date without specifying an origin:
 

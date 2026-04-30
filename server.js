@@ -9,7 +9,13 @@ const PORT = process.env.PORT || 8080;
 
 // ─── Postgres ─────────────────────────────────────────────────────────────────
 const db = process.env.DATABASE_URL
-    ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } })
+    ? new Pool({
+        connectionString:      process.env.DATABASE_URL,
+        ssl:                   { rejectUnauthorized: false },
+        max:                   5,    // 5 per dyno × 4 dynos = 20 total; well within Heroku Postgres limits
+        idleTimeoutMillis:     30000,
+        connectionTimeoutMillis: 5000,
+    })
     : null;
 
 async function initDb() {
@@ -141,6 +147,16 @@ app.use(express.json());
 // ─── Flight API proxy ─────────────────────────────────────────────────────────
 const flightCache = new Map();
 const CACHE_TTL   = 4 * 60 * 60 * 1000;
+const CACHE_MAX   = 500;
+
+function sweepFlightCache() {
+    const now = Date.now();
+    for (const [key, val] of flightCache) {
+        if (val.expires <= now) flightCache.delete(key);
+    }
+}
+// Evict expired entries every 30 min; .unref() so this doesn't block process exit
+setInterval(sweepFlightCache, 30 * 60 * 1000).unref();
 
 async function flightsHandler(req, res) {
     const { location, date, destination, query = '' } = req.query;
@@ -164,7 +180,9 @@ async function flightsHandler(req, res) {
         const upstream = await fetch(url, { headers: { Accept: 'application/json', 'User-Agent': 'parking-wizard/1.0' } });
         if (!upstream.ok) return res.status(upstream.status).json({ error: 'upstream error' });
         const data = await upstream.json();
+        if (flightCache.size >= CACHE_MAX) sweepFlightCache();
         flightCache.set(key, { data, expires: Date.now() + CACHE_TTL });
+        if (flightCache.size > CACHE_MAX) flightCache.delete(flightCache.keys().next().value);
         res.json(data);
     } catch (e) {
         console.error('[flights]', e.message);
@@ -471,7 +489,7 @@ function mountRoutes(router, basePath) {
     // Static assets — images, fonts, fuse.js, favicons
     // index.html is served explicitly above so we can inject the base path;
     // the static middleware handles everything else.
-    router.use(express.static(path.join(__dirname), {
+    router.use(express.static(path.join(__dirname, 'public'), {
         maxAge: '30d',
         etag:   true,
         lastModified: true,
